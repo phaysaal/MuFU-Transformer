@@ -1,0 +1,22 @@
+lib: [
+  "_build/install/default/lib/muFU/META"
+  "_build/install/default/lib/muFU/dune-package"
+  "_build/install/default/lib/muFU/muFU.a"
+  "_build/install/default/lib/muFU/muFU.cma"
+  "_build/install/default/lib/muFU/muFU.cmi"
+  "_build/install/default/lib/muFU/muFU.cmt"
+  "_build/install/default/lib/muFU/muFU.cmx"
+  "_build/install/default/lib/muFU/muFU.cmxa"
+  "_build/install/default/lib/muFU/muFU.ml"
+  "_build/install/default/lib/muFU/opam"
+]
+libexec: [
+  "_build/install/default/lib/muFU/muFU.cmxs"
+]
+bin: [
+  "_build/install/default/bin/mufu"
+]
+doc: [
+  "_build/install/default/doc/muFU/LICENSE"
+  "_build/install/default/doc/muFU/README.md"
+]

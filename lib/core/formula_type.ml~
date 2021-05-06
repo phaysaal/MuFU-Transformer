@@ -1,0 +1,17 @@
+type pred =
+  | Eq
+  | Neq
+  | Le
+  | Ge
+  | Lt
+  | Gt
+  [@@deriving eq,ord,show,iter,map,fold,sexp]
+
+(* formula parametrized by variable type and arith type *)
+type ('bvar, 'avar) gen_t =
+  | Bool of bool
+  | Var  of 'bvar
+  | Or   of ('bvar, 'avar) gen_t list
+  | And  of ('bvar, 'avar) gen_t list
+  | Pred of pred * 'avar Arith.gen_t list
+  [@@deriving eq,ord,show,iter,map,fold,sexp]

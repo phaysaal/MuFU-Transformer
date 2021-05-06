@@ -1,0 +1,9 @@
+opam-version: "2.0"
+version: "0.1"
+maintainer: "faisal@kb.is.s.u-tokyo.ac.jp"
+authors: ["Mahmudul" "Faisal Al Ameen"]
+homepage: "https://github.com/phaysaal/MuFU"
+license: "Apache-2.0"
+build: [
+  ["dune" "build" "-p" name "-j" jobs]
+]

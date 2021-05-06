@@ -1,0 +1,13 @@
+(lang dune 2.8)
+(name muFU)
+(version 0.1)
+(library
+ (name muFU)
+ (kind normal)
+ (archives (byte muFU.cma) (native muFU.cmxa))
+ (plugins (byte muFU.cma) (native muFU.cmxs))
+ (native_archives muFU.a)
+ (requires muFU_syntax muFU_core)
+ (main_module_name MuFU)
+ (modes byte native)
+ (modules (singleton (name MuFU) (obj_name muFU) (visibility public) (impl))))
