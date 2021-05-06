@@ -1,8 +1,0 @@
-(library
- (public_name mufold)
- (libraries
-    hflmc2_syntax
-		mufold_core
-  ))
-
-(env (dev (flags (:standard -warn-error -A))))
