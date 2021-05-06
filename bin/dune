@@ -1,0 +1,10 @@
+(executables
+ (names main)
+ (modules main)
+ (libraries muFU))
+(install
+ (package muFU)
+ (section bin)
+ (files (main.exe as mufu)))
+
+(env (dev (flags (:standard -warn-error -A))))

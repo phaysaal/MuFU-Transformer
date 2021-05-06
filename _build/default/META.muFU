@@ -1,7 +1,0 @@
-version = "0.1"
-description = ""
-requires = "muFU_core muFU_syntax"
-archive(byte) = "muFU.cma"
-archive(native) = "muFU.cmxa"
-plugin(byte) = "muFU.cma"
-plugin(native) = "muFU.cmxs"
