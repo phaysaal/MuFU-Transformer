@@ -1,0 +1,4 @@
+%HES
+S =v G (L n) (n - 1).
+G p n =v p n.
+L i j =v i >= j.
