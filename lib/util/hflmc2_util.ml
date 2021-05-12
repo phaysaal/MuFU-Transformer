@@ -54,7 +54,10 @@ module List = struct
     for_all xs ~f:begin fun x ->
       exists ys ~f:begin fun y ->
         x = y end end
-
+  (* compareをリスペクトするtotal orderがあればmerge sortの
+   * 要領でO(n log n)でできるがこれがボトルネックとなるとは思えないので
+   * とりあえず O(n^2) で実装する
+   *)
   let rec maximals
        : 'a list
       -> compare:('a -> 'a -> int option)
@@ -71,7 +74,7 @@ module List = struct
                   go x ys
               | Some _ ->
                   is_maximal := false;
-                  y :: go y ys
+                  y :: go y ys (* xでもよいがこの方が速い *)
               | None ->
                   y :: go x ys
               end
@@ -180,12 +183,10 @@ module Fn = struct
   let const x _ = x
 
   let print ?(tag="") pp x =
-    (* if tag = ""
-    then Format.printf "@[%a@]@." pp x
-    else *) Format.printf "%s: @[%a@]@." tag pp x
-  ;;
+    (* if tag = "" *)
+    (* then Format.printf "@[%a@]@." (pp x)
+    else *) Format.printf "%s: @[%a@]@." tag (pp x)
 
-  
   let on injection g x y = g (injection x) (injection y)
 
   let curry f x y = f (x, y)

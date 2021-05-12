@@ -1,4 +1,4 @@
-open MuFU_util
+open Hflmc2_util
 module Arith    = Arith
 module Fixpoint = Fixpoint
 module Print    = Print
@@ -80,6 +80,7 @@ end = struct
             | I.T_START_ENV -> "START_ENV"
             | I.T_SEMICOLON -> "SEMICOLON"
             | I.T_FORALL    -> "FORALL"
+            | I.T_EXISTS    -> "EXISTS"
             | I.T_SLASH     -> "SLASH"
             | I.T_PERCENT   -> "PERCENT"
             end

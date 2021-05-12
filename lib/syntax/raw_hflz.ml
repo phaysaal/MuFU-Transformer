@@ -1,4 +1,4 @@
-open MuFU_util
+open Hflmc2_util
 type raw_hflz =
   | Bool of bool
   | Var  of string
@@ -10,6 +10,7 @@ type raw_hflz =
   | Op   of Arith.op * raw_hflz list
   | Pred of Formula.pred * raw_hflz list
   | Forall of string * raw_hflz
+  | Exists of string * raw_hflz
   [@@deriving eq,ord,show,iter,map,fold,sexp]
 type hes_rule =
   { var  : string
@@ -26,6 +27,7 @@ let mk_bool b    = Bool b
 let mk_var x     = Var x
 let mk_op op as' = Op(op,as')
 let mk_forall var body = Forall(var, body)
+let mk_exists var body = Exists(var, body)
 
 let mk_ands = function
   | [] -> Bool true
@@ -54,7 +56,6 @@ let rec decompose_abs = function
       x::args, body
   | phi -> [], phi
 
-         
 module Typing = struct
   let log_src = Logs.Src.create ~doc:"Simple Typing" "Typing"
   module Log = (val Logs.src_log log_src)
@@ -278,6 +279,8 @@ module Typing = struct
             self#add_ty_env x tv_arg;
             let psi = self#term id_env psi TvBool in
             Forall(lift_arg x, psi)
+        | Exists(name, psi) -> 
+           raise (Error "Existential quantifier is not supported")
         | App (psi1, psi2) ->
             let tv_arg = new_tyvar() in
             let psi1 = self#term id_env psi1 (TvArrow(tv_arg, tv)) in

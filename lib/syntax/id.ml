@@ -1,4 +1,4 @@
-open MuFU_util
+open Hflmc2_util
 
 (** ['ty] is typically a type of the id *)
 type 'ty t =
@@ -8,7 +8,6 @@ type 'ty t =
   }
   [@@deriving eq,ord,show,iter,map,fold,sexp]
 
-  
 let eq x y = String.equal x.name y.name && x.id = y.id
 
 let counter = new Fn.counter

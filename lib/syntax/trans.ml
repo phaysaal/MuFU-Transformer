@@ -1,4 +1,4 @@
-open MuFU_util
+open Hflmc2_util
 open Type
 module S = struct
   module Id      = Id
@@ -382,7 +382,7 @@ module Simplify = struct
     fun rules ->
       rules
       |> begin
-          if !MuFU_options.Preprocess.inlining
+          if !Hflmc2_options.Preprocess.inlining
           then Reduce.Hflz.inline
           else Fn.id
          end

@@ -1,5 +1,5 @@
 (* NOTE Information of type will be lost! *)
-open MuFU_util
+open Hflmc2_util
 include Map.Make'(Id.Key)
 
 let singleton : 'a Id.t -> 'x -> 'x t =
