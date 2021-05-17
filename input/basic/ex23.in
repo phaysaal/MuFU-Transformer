@@ -1,0 +1,21 @@
+/*
+(declare-fun G (Int) Bool)
+(declare-fun Fib (Int Int) Bool)
+(declare-fun mu () Bool)
+(declare-fun nu () Bool)
+
+(assert (forall ((x Int)) (G x)))
+
+(assert (forall ((x Int))
+  (= (G x) 
+    (exists ((r Int)) (or (< x 0) (Fib x r))))))
+
+(assert (and mu (forall ((x Int) (r Int))
+  (= (Fib x r) (or
+    (and (= x 0) (= r 0))
+    (and (= x 1) (= r 1))
+    (and (not (= x 0)) (not (= x 1))
+    	 (exists ((s1 Int) (s2 Int)) (and (Fib (- x 1) s1) (Fib (- x 2) s2) (= r (+ s1 s2))))))))))
+
+(check-sat)
+*/

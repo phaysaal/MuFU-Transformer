@@ -1,0 +1,20 @@
+/*
+(declare-fun G (Int Int) Bool)
+(declare-fun Plus (Int Int Int) Bool)
+(declare-fun mu () Bool)
+(declare-fun nu () Bool)
+
+(assert (forall ((y Int) (z Int)) (G y z)))
+
+(assert (forall ((y Int) (z Int))
+  (= (G y z) (or (> y z) (< y 0)
+    (exists ((x Int)) (Plus x y z))))))
+
+(assert (and mu (forall ((x Int) (y Int) (r Int))
+  (= (Plus x y r) (or
+    (and (= y 0) (= r x))
+    (and (not (= y 0)) (Plus x (- y 1) (- r 1))))))))
+
+(check-sat)
+
+*/
