@@ -1,5 +1,5 @@
 (library
- (public_name muFU_options)
+ (public_name hflmc2_options)
  (libraries
    fmt
    fmt.cli
@@ -7,6 +7,6 @@
    logs
    logs.cli
    cmdliner
-   muFU_util)
+   hflmc2_util)
  (preprocess (pps ppx_deriving.std ppx_compare ppx_sexp_conv ppx_deriving_cmdliner ppx_let)))
 (env (dev (flags (:standard -warn-error -A -w -3-26-33-39))))

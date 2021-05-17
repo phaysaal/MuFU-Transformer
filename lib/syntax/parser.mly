@@ -1,6 +1,6 @@
 
 %{
-open MuFU_util
+open Hflmc2_util
 open Raw_hflz
 %}
 
@@ -17,6 +17,7 @@ open Raw_hflz
 %token DEF_G "=v"
 %token DEF_L "=m"
 %token FORALL 
+%token EXISTS
 
 %token PLUS  "+" MINUS "-" STAR  "*" SLASH "/" PERCENT "%" NEG
 %token EQ "=" NEQ "<>" LE "<=" GE ">=" /* LT "<" GT ">" */
@@ -69,6 +70,7 @@ and_or_expr:
 | and_or_expr "&&" and_or_expr  { mk_ands [$1;$3] }
 | and_or_expr "||" and_or_expr  { mk_ors  [$1;$3] }
 | FORALL lvar "." and_or_expr   { mk_forall $2 $4 }
+| EXISTS lvar "." and_or_expr   { mk_exists $2 $4 }
 | pred_expr                     { $1 }
 
 pred_expr:

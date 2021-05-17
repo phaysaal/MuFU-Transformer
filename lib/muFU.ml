@@ -1,7 +1,7 @@
 open Core
    
-module Syntax      = MuFU_syntax
-module Options     = MuFU_options
+module Syntax      = Hflmc2_syntax
+module Options     = Hflmc2_options
 (* module Util        = Hflmc2_util *)
 module MuFU        = MuFU_core
 
