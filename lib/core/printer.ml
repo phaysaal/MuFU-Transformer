@@ -35,7 +35,7 @@ let rec pp_formula = function
   | H.Bool false -> "(0 <> 0)"
   | H.Var s -> s
   | H.Or (f1, f2) -> "(" ^ pp_formula f1 ^ " \\/ " ^ pp_formula f2 ^ ")"
-  | H.And (f1, f2) -> pp_formula f1 ^ " /\\ " ^ pp_formula f2
+  | H.And (f1, f2) -> "(" ^ pp_formula f1 ^ " /\\ " ^ pp_formula f2 ^ ")"
   | H.Abs (s, f) -> "\\" ^ s ^ "." ^ pp_formula f 
   | H.App (f1, f2) -> pp_formula f1 ^ " " ^ pp_formula f2
   | H.Int i -> string_of_int i

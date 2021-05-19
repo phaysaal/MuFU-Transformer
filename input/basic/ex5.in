@@ -1,3 +1,9 @@
+%HES
+
+G x y z r =v Dplus (x + y) z r \/ ∃s.Plus x z s.
+Dplus x y r =v (y <> 0 \/ r <> x) /\ (y = 0 \/ Dplus x (y - 1) (r -1)).
+Plus x y r =μ (y = 0 /\ r = x) \/ (y <> 0 /\ Plus x (y - 1) (r - 1)).
+
 /*
 (declare-fun G (Int Int Int Int) Bool)
 (declare-fun Dplus (Int Int Int) Bool)
@@ -23,4 +29,53 @@
     (and (not (= y 0)) (Plus x (- y 1) (- r 1))))))))
 
 (check-sat)
+*/
+
+/*
+Unfolded:
+G x y z r =  ((z<>0 \/ r<>(x+y)) /\ (z=0 \/ Dplus (x+y) (z-1) (r-1)))    \/    ∃s.((z=0 /\ s=x) \/ (z<>0 /\ Plus x (z-1) (s-1)))
+
+G x y z r =  (z<>0 \/ r<>(x+y)) \/ ∃s.((z=0 /\ s=x) \/ (z<>0 /\ Plus x (z-1) (s-1)))         /\      (z=0 \/ Dplus (x+y) (z-1) (r-1)) \/ ∃s.((z=0 /\ s=x) \/ (z<>0 /\ Plus x (z-1) (s-1)))
+
+G x y z r =  z<>0 \/ r<>(x+y) \/ ∃s.(z=0 /\ s=x) \/ ∃s.(z<>0 /\ Plus x (z-1) (s-1))          /\      z=0 \/ Dplus (x+y) (z-1) (r-1) \/ ∃s.(z=0 /\ s=x) \/ ∃s.(z<>0 /\ Plus x (z-1) (s-1))
+
+
+Normalized:
+G x y z r =  ((r<>(x+y) \/ (z<>0 \/ (∃s.(z=0 /\ s=x) \/ ∃s.(z<>0 /\ Plus x (z-1) (s-1))))) /\ (z=0 \/ (Dplus (x+y) (z-1) (r-1) \/ (∃s.(z=0 /\ s=x) \/ ∃s.(z<>0 /\ Plus x (z-1) (s-1))))))
+
+G x y z r =  FIXV2 x y z r
+FIXV2 x y z r =     z=0 \/ FIXV2 x y (z-1) (r-1)
+										z=0 \/ z-1=0 \/ FIXV2 x y (z-2) (r-2)
+										
+                    z=0 \/ Dplus (x+y) (z-1) (r-1)                                                              \/ ∃s.(z=0 /\ s=x) \/ ∃s.(z<>0 /\ Plus x (z-1) (s-1))
+										z=0 \/ ((z-1) <> 0 \/ (r-1) <> (x+y)) /\ ((z-1) = 0 \/ Dplus (x+y) ((z-1) - 1) ((r-1) -1))
+										(z=0 \/ ((z-1) <> 0 \/ (r-1) <> (x+y))) /\ (z=0 \/ (z-1) = 0 \/ Dplus (x+y) ((z-1) - 1) ((r-1) -1))
+										                                           (z=0 \/ z-1=0 \/ Dplus (x+y) ((z-1) - 1) ((r-1) -1))
+
+
+
+Original: (Dplus (x+y) z r \/ ∃s.Plus x z s)
+
+Unfolded: (((z<>0 \/ r<>(x+y)) /\ (z=0 \/ Dplus (x+y) (z-1) (r-1))) \/ ∃s.((z=0 /\ s=x) \/ (z<>0 /\ Plus x (z-1) (s-1))))
+
+Normalized:
+z=0 \/ r<>(x+y) \/ z<>0 /\
+z=0 \/ r<>(x+y) \/ z<>0 \/ ∃s.Plus x (z-1) (s-1) /\
+r<>(x+y) \/ z<>0 \/ ∃s.s=x /\
+r<>(x+y) \/ z<>0 \/ ∃s.Plus x (z-1) (s-1) \/ ∃s.s=x /\
+z=0 \/ z<>0 \/ Dplus (x+y) (z-1) (r-1) /\
+z=0 \/ Dplus (x+y) (z-1) (r-1) \/ ∃s.Plus x (z-1) (s-1) /\
+z=0 \/ z<>0 \/ Dplus (x+y) (z-1) (r-1) \/ ∃s.s=x /\
+z=0 \/ Dplus (x+y) (z-1) (r-1) \/ ∃s.Plus x (z-1) (s-1) \/ ∃s.s=x
+
+
+TRUE /\
+TRUE /\
+r<>(x+y) \/ z<>0 \/ ∃s.s=x /\
+r<>(x+y) \/ z<>0 \/ ∃s.Plus x (z-1) (s-1) \/ ∃s.s=x /\
+TRUE /\
+z=0 \/ Dplus (x+y) (z-1) (r-1) \/ ∃s.Plus x (z-1) (s-1) /\
+TRUE /\
+z=0 \/ Dplus (x+y) (z-1) (r-1) \/ ∃s.Plus x (z-1) (s-1) \/ ∃s.s=x
+
 */
