@@ -29,7 +29,7 @@ let transform (hes : H.hes) : H.hes =
   print_seperation aux goal;
   
   let cnf_goal = normalize goal.H.body in
-  print_cnf_goal_formula cnf_goal;
+  (* print_cnf_goal_formula cnf_goal; *)
   let goal' : H.hes_rule = transform_hes aux goal in
   
   goal'::aux
