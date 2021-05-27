@@ -98,6 +98,7 @@ let compare_raw_hflz f1 f2 =
      1
   | _ ->
      H.compare_raw_hflz f1 f2
+(* String.compare (H.show_raw_hflz f1) (H.show_raw_hflz f2) *)
 ;;
 
 let mk fn (f1, f2) =
@@ -152,11 +153,19 @@ and cnf_ext formula =
   | H.Or _ as f ->
      let fs = hflz_to_or_list f in
      let fs' = List.sort_uniq compare_raw_hflz fs in
-     mk_ors fs'
+     let f' = (mk_ors fs') in
+     if f' <> f then
+       cnf_ext f'
+     else
+       f'
   | H.And _ as f ->
      let fs = hflz_to_and_list f in
-    let fs' = List.sort_uniq compare_raw_hflz fs in
-    mk_ands fs'
+     let fs' = List.sort_uniq compare_raw_hflz fs in
+     let f' = mk_ands fs' in
+     if f' <> f then
+       cnf_ext f'
+     else
+       f'
   (** Relational and Arithmetic *)
   | H.Pred (F.Eq, fs) ->
      let fs' = List.sort_uniq compare_raw_hflz fs in
@@ -408,13 +417,13 @@ let make_def_map defs =
   List.fold_left add_map D.empty defs 
 ;;
 
-let rec transform_newgoal defs_map (goal : H.hes_rule) : H.hes_rule =
+let rec transform_newgoal defs_map (orig_goal : H.hes_rule) : H.hes_rule =
   let rec aux def_map (goal : H.hes_rule) = function
       0 -> goal
     | n ->
        print_endline "-----------";
        let body' = unfold defs_map goal in
-       let res, body'' = fold goal body' in
+       let res, body'' = fold orig_goal body' in
        let goal' = mk_rule goal.H.var goal.H.args goal.H.fix body'' in
        P.pp_rule goal' |> P.dbg "GOAL'";
 
@@ -422,7 +431,7 @@ let rec transform_newgoal defs_map (goal : H.hes_rule) : H.hes_rule =
        let goal'' = aux def_map goal' (n-1) in
        goal''
   in
-  aux defs_map goal 2
+  aux defs_map orig_goal 4
 ;;
 
 let rec subtract s = function
