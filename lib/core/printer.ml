@@ -58,3 +58,11 @@ let pp_hes hes =
   pp_list pp_rule ~sep:"\n" hes
 ;;
 
+let dbg tag str =
+  tag ^ ": " ^ str
+  |> print_endline
+;;
+
+let dbgn tag str =
+  tag ^ ": " |> print_endline;
+  str        |> print_endline

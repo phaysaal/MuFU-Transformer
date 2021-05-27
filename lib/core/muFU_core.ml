@@ -6,20 +6,16 @@ module P = Printer
          
 
 let print_cnf_goal_formula cnf_goal =
-  print_endline "CNF of Goal:";
-  print_endline (P.pp_formula cnf_goal);
+  P.pp_formula cnf_goal |> P.dbgn "CNF of Goal:";
 ;;
 
 let print_goal goal =
-  print_endline "GOAL:";
-  print_endline (P.pp_rule goal);
+  P.pp_rule goal |> P.dbgn "Goal:";
 ;;
-
 
 let print_seperation aux goal =
   print_goal goal;
-  print_endline "AUX:";
-  print_endline (P.pp_hes aux);
+  P.pp_hes aux |> P.dbgn "AUX:";
 ;;
 
          
@@ -27,10 +23,8 @@ let transform (hes : H.hes) : H.hes =
   let aux, goals = Seperator.seperate_goal_and_defs hes in
   let goal = List.hd goals in
   print_seperation aux goal;
-  
-  let cnf_goal = normalize goal.H.body in
-  (* print_cnf_goal_formula cnf_goal; *)
-  let goal' : H.hes_rule = transform_hes aux goal in
-  
-  goal'::aux
+
+  let alldefs : H.hes_rule list = transform_hes aux goal in
+  P.pp_list ~sep:"\n" P.pp_rule alldefs |> P.dbgn "Result";
+  alldefs
 

@@ -6,11 +6,33 @@ module A = Arith
 
 module P = Printer
 module Z = Z3Interface
-module U = Unifier
+module U = MatchMaker
          
 module D = Map.Make(String)
 
 exception StrangeSituation of string
+exception UnsupportedNow of string
+
+let var_seq = ["x"; "y"; "z"; "w"; "r"; "p"; "q"; "m"; "n"];;
+
+let new_params n =
+  let l = List.length var_seq in
+  let rec aux = function
+      i when i = n -> []
+    | i ->
+       if i < l then
+         List.nth var_seq i::aux (i+1)
+       else
+         ("p" ^ (string_of_int (l-i)))::aux (i+1)
+  in
+  aux 0
+;;
+                          
+let newpredcount = ref 0;;
+
+let new_predicate_name () =
+  newpredcount := !newpredcount + 1;
+  "FIXPRED" ^ string_of_int !newpredcount;;
                        
 let equiv f1 f2 =
   f1 = f2;;
@@ -33,7 +55,26 @@ let cnf_of_formula f =
   in
   mk f
 ;;
-     
+
+let dnf_of_formula f =
+  let rec mk_left x y =
+    match y with
+    | H.Or (a, b) -> H.mk_or (mk_left x a) (mk_left x b)
+    | _ -> H.mk_and x y
+  in
+  let rec mk_right x y = match x with
+    | H.Or (a, b) -> H.mk_or (mk_right a y) (mk_right b y)
+    | _ -> mk_left x y
+  in
+  let rec mk f =
+    match f with
+    | H.Or (f1, f2) -> H.mk_or (mk f1) (mk f2)
+    | H.And (f1, f2) -> mk_right (mk f1) (mk f2)
+    | _ -> f 
+  in
+  mk f
+;;
+
 
 let rec mk_ors = function
     [] -> H.Pred (Formula.Eq, [H.Int 0; Int 1])
@@ -57,6 +98,13 @@ let compare_raw_hflz f1 f2 =
      1
   | _ ->
      H.compare_raw_hflz f1 f2
+;;
+
+let mk fn (f1, f2) =
+  if compare_raw_hflz f1 f2 <= 0 then
+    fn f1 f2
+  else
+    fn f2 f1
 ;;
 
 let rec hflz_to_or_list = function
@@ -86,18 +134,25 @@ and cnf_ext formula =
   (** (f1 & f2) | f => (f1 | f) & (f2 | f) *)
   | H.Or (H.And (f1, f2), f) ->
      let f' = cnf_ext f in
-     H.And (H.Or (cnf_ext f1,f') |> cnf_ext,
-            H.Or (cnf_ext f2,f') |> cnf_ext)
+     mk H.mk_and (mk H.mk_or (cnf_ext f1,f') |> cnf_ext,
+            mk H.mk_or (cnf_ext f2,f') |> cnf_ext)
   (** x | (y & z) => (y | x) & (z | x) *)
   | H.Or (f, H.And (f1, f2)) ->
      let f' = cnf_ext f in
-     H.And (H.Or (f', cnf_ext f1) |> cnf_ext,
-            H.Or (f', cnf_ext f2) |> cnf_ext)
+     mk H.mk_and (mk H.mk_or (f', cnf_ext f1) |> cnf_ext,
+                  mk H.mk_or (f', cnf_ext f2) |> cnf_ext)
   (** Associativity and commutativity *)
-  | H.Or _ as f ->
+  | H.Or (f1, f2) ->
+     let f1' = cnf_ext f1 in
+     let f2' = cnf_ext f2 in
+     if f1=f1' && f2=f2' then
+       formula
+     else
+     H.Or (f1', f2') |> cnf_ext
+  (* | H.Or _ as f ->
      let fs = hflz_to_or_list f in
      let fs' = List.sort_uniq compare_raw_hflz fs in
-     mk_ors fs'
+     mk_ors fs' *)
   | H.And _ as f ->
      let fs = hflz_to_and_list f in
     let fs' = List.sort_uniq compare_raw_hflz fs in
@@ -241,7 +296,7 @@ let normalize f =
   |> taut_elim
 ;;
 
-let build_args f =
+let explode_pred f =
   let rec aux acc = function
       H.App (f1, f2) ->
        aux (f2::acc) f1
@@ -258,34 +313,36 @@ let rec get_temps_n n =
     []
 ;;
 
-let exec_unfold defs_map f =
-  let (pred_name, args) : string * H.raw_hflz list = build_args f in
-  let pred = D.find pred_name defs_map in
-  let params : string list = pred.H.args in
-  let temps = get_temps_n (List.length args) in
-  let vtemps = List.map (fun t -> H.Var t) temps in
-  
+let subs_vars params args f =
   let p_t =
     try
-      List.combine params vtemps
+      List.combine params args
     with
       _ ->
-      print_endline pred.H.var;
+      (* print_endline pred.H.var;
       print_endline (H.show_raw_hflz f);
       print_endline "Args:";
       print_endline (P.pp_list P.pp_formula args);
       print_endline "Params:";
       List.iter (fun s -> print_string s; print_string ",") params;
       print_endline "";
-      []
+      [] *)
+      raise ( StrangeSituation "Param-Args mismatch")
   in
-  let t_a = List.combine temps args in
-  let body' = List.fold_left (fun f (to_be, by) ->
-                  U.subs_var to_be by f
-                ) pred.H.body p_t in
-  let body'' = List.fold_left (fun f (to_be, by) ->
-                  U.subs_var to_be by f
-                ) body' t_a in
+  List.fold_left (fun f (to_be, by) ->
+      U.subs_var to_be by f
+    ) f p_t
+;;
+
+let exec_unfold defs_map f =
+  let (pred_name, args) : string * H.raw_hflz list = explode_pred f in
+  let pred = try D.find pred_name defs_map with e -> print_endline pred_name;raise e in
+  let params : string list = pred.H.args in
+  let temps = get_temps_n (List.length args) in
+  let vtemps = List.map (fun t -> H.Var t) temps in
+  
+  let body' = subs_vars params vtemps pred.H.body in
+  let body'' = subs_vars temps args body' in
   body''
 ;;
 
@@ -311,7 +368,18 @@ let rec unfold_formula defs_map f =
      H.Exists (s, unfold_formula defs_map  f1)
   | H.Forall (s, f1) ->
      H.Forall (s, unfold_formula defs_map f1)
-         
+
+
+let mk_rule n a f b =
+    {
+    H.var = n;
+    args = a;
+    fix = f;
+    body = b
+  }
+
+;;
+   
 let unfold defs_map goal =
   print_endline ("Original: " ^ (P.pp_formula goal.H.body));
   let body' = unfold_formula defs_map goal.H.body in
@@ -319,19 +387,16 @@ let unfold defs_map goal =
 
   let body'' = normalize body' in
   
-  print_endline ("Normalized: " ^ (P.pp_formula body''));
-  
-  {
-    H.var = goal.H.var;
-    args = goal.H.args;
-    fix = goal.H.fix;
-    body = body'
-  }
+  print_endline ("Normalized Body: " ^ (P.pp_formula body''));
+  body''
 ;;
 
-
-
-let fold hes = hes;;
+let fold goal body =
+  P.pp_formula body |> P.dbgn "Before Fold";
+  let res, body' = U.find_matching goal.H.var goal.H.args goal.H.body body in
+  P.pp_formula body' |> P.dbgn "After Fold";
+  res, body'
+;;
 
 let add_map map def =
   D.add def.H.var def map
@@ -341,20 +406,270 @@ let make_def_map defs =
   List.fold_left add_map D.empty defs 
 ;;
 
-let rec transform_hes defs (goal : H.hes_rule) =
-  
-  let defs_map = make_def_map defs in
+let rec transform_newgoal defs_map (goal : H.hes_rule) : H.hes_rule =
   let rec aux def_map (goal : H.hes_rule) = function
       0 -> goal
     | n ->
        print_endline "-----------";
-       let goal' = unfold defs_map goal in
-       let goal'' = fold goal' in
-       aux def_map goal'' (n-1)
+       let body' = unfold defs_map goal in
+       let res, body'' = fold goal body' in
+       let goal' = mk_rule goal.H.var goal.H.args goal.H.fix body'' in
+       P.pp_rule goal' |> P.dbg "GOAL'";
+
+       if res then goal' else
+       let goal'' = aux def_map goal' (n-1) in
+       goal''
   in
   aux defs_map goal 2
 ;;
-  
-  
 
+let rec subtract s = function
+    [] -> []
+  | s'::xs when s'=s -> subtract s xs
+  | x ::xs -> x::subtract s xs;;
+
+let rec fv f =
+  match f with
+  | H.Bool _ -> []
+  | H.Var s -> [s]
+  | H.Or (f1, f2) ->
+     fv f1 @ fv f2
+  | H.And (f1, f2) ->
+     fv f1 @ fv f2
+  | H.Abs (s, f1) ->
+     fv f1 |> (subtract s)
+  | H.App (H.Var _, f2) ->
+     fv f2
+  | H.App (f1, f2) ->
+     fv f1 @ fv f2
+  | H.Int _ -> []
+  | H.Op (_, f1) ->
+     List.map fv f1 |> List.concat
+  | H.Pred (_, f1) ->
+     List.map fv f1 |> List.concat
+  | H.Exists (s, f1) ->
+     fv f1 |> (subtract s)
+  | H.Forall (s, f1) ->
+     fv f1 |> (subtract s)
+;;
+
+
+let var_compare x y =
+  match x, y with
+    "x", _ when y<>"x" -> -1
+  | "y", _ when y<>"y" -> -1
+  | "z", _ when y<>"z" -> -1
+  | _, "x" when y<>"x" -> 1
+  | _, "y" when y<>"y" -> 1
+  | _, "z" when y<>"z" -> 1
+  | _, _ -> String.compare x y
+;;
+
+let uniq ls =
+  let rec aux acc = function
+      [] -> []
+    | x::xs ->
+       if List.mem x acc then
+         aux acc xs
+       else
+         x::aux (x::acc) xs
+  in
+  aux [] ls
+;;
+
+let make_new_goal f =
+  let newpredname = new_predicate_name () in
+  let fvs = fv f |> List.sort_uniq var_compare in
+  let newpred = List.map H.mk_var fvs
+                |> U.implode_pred newpredname
+  in
+  let newpreddef = {H.var=newpredname; args=fvs; fix=Fixpoint.Greatest; body=f} in
+  (Some newpreddef, newpred)
+;;
+
+let rec transform_goal = function
+  | H.And _ -> raise (UnsupportedNow "Transfer Goal")
+  | H.Or (H.App _, _) as f ->
+     make_new_goal f
+  | H.Or (f1, f2) as f ->
+     begin
+       let (res, f2') = transform_goal f2 in
+       match res with
+         None -> (res, f)
+       | Some _ -> (res, H.Or (f1, f2'))
+     end
+  | H.App _ as f ->
+     make_new_goal f
+  | f ->
+     (None, f)
+;;
+
+let concat_option res1 res2 =
+  match res1, res2 with
+    Some nf1, Some nf2 -> Some (nf1@nf2) 
+  | Some _, _ -> res1
+  | _, _ -> res2
+;;
+
+let op_apply fn (a, b) =
+  let (a', b') = fn b in
+  (concat_option a a', b')
+;;
+
+let snd_apply fn (a, b) =
+  let b' = fn b in
+  (a, b')
+;;
+
+let is_candidate s args =
+  List.exists (fun a -> let fvs = fv a in fvs = [s] || List.length fvs = 0) args
+;;
+
+let reduce_args sv args =
+  List.filter (fun (_, a) -> let fvs = fv a in fvs <> [sv] && List.length fvs > 0) args
+;;
+
+let reduce_args1 sv args =
+  List.filter (fun  a -> let fvs = fv a in fvs <> [sv] && List.length fvs > 0) args
+;;
+
+let rec ex_trans_formula s predname newpredname = function
+    H.Exists (s', ((H.App _) as f)) when s'=s ->
+    let (p, args) = explode_pred f in
+    if p = predname then
+      let args' = reduce_args1 s args in
+      U.implode_pred newpredname args'
+    else
+      H.Exists (s', f)
+  | H.And (f1, f2) ->
+     H.And (ex_trans_formula s predname newpredname f1, ex_trans_formula s predname newpredname f2)
+  | H.Or (f1, f2) ->
+     H.Or (ex_trans_formula s predname newpredname f1, ex_trans_formula s predname newpredname f2)
+      
+  | f -> f;;
+
+let reverse_subs p_a f =
+  let (p,a) = List.split p_a in
+  let p' = List.map H.mk_var p in
+  let a_p = List.combine a p' in
+  List.fold_left (fun f (to_be, by) ->
+      U.subs_f to_be by f
+    ) f a_p
+;;
+
+let step2 s f defs_map p_a fixpoint predname =
+  P.pp_formula f |> P.dbgn "f";
+  let p_a' = reduce_args s p_a in
+  let f' = f
+           |> unfold_formula defs_map
+           |> dnf_of_formula
+           |> H.mk_exists s
+           |> ex_dist
+           |> taut_elim
+           |> reverse_subs p_a'
+  in
+  P.pp_formula f' |> P.dbgn "After Unfold";
+
+  let newpredname = new_predicate_name () in
+  
+  let k = List.length p_a' in
+  let params = new_params k in
+  P.pp_list P.id params |> P.dbg "New Params";
+  let ps, a_s = List.split p_a' in
+  P.pp_list P.id ps |> P.dbg "Original Params";
+  let params' = List.map H.mk_var params in
+  let f'' = subs_vars ps params' f' in
+  P.pp_formula f'' |> P.dbgn "f''";
+  
+  let f''' = ex_trans_formula s predname newpredname f'' in
+  P.pp_formula f''' |> P.dbgn "f'''";
+  
+  let newpred = {H.var=newpredname; args=params; fix=fixpoint; body=f'''} in
+  P.pp_rule newpred |> P.dbgn "New Pred";
+
+  let f = U.implode_pred newpredname a_s in 
+  P.pp_formula f |> P.dbgn "f";
+  
+  (Some [newpred], f)
+
+;;
+
+let exec_exists_elim defs_map f =
+  print_endline "====================";
+  P.pp_formula f |> P.dbgn "Original";
+  let (_s, _f, _X, _args) =
+    match f with
+      H.Exists (s, f) ->
+      let predname, args = explode_pred f in
+      (s, f, predname, args)
+    | _ -> raise (StrangeSituation "Expects only Exists")
+  in
+  let _sv = H.mk_var _s in
+  let pred = D.find _X defs_map in
+  let fixpoint = pred.H.fix in
+  let p_a = List.combine pred.H.args _args in
+  if not (is_candidate _s _args) then
+    (None, f)
+  else
+    step2 _s _f defs_map p_a fixpoint _X
+;;
+
+let rec exists_elim defs_map f =
+  match f with
+    H.Or (f1, f2) ->
+    let (res1, f1') = exists_elim defs_map f1 in
+    let (res2, f2') = exists_elim defs_map f2 in
+    let res = concat_option res1 res2 in
+    (res, H.Or (f1',f2'))
+  | H.And (f1, f2) ->
+    let (res1, f1') = exists_elim defs_map f1 in
+    let (res2, f2') = exists_elim defs_map f2 in
+    let res = concat_option res1 res2 in
+    (res, H.And (f1',f2'))
+  | H.Exists _ as f ->
+     exec_exists_elim defs_map f
+  | _ -> (None, f)
+;;
+
+    
+let transform_hes (defs : H.hes) goal =
+  let defs_map = make_def_map defs in
+  let (res, goal') : (H.hes option * H.raw_hflz) =
+    goal.H.body
+    |> dnf_of_formula
+    |> exists_elim defs_map
+    |> snd_apply normalize
+  in
+  let newgoal_o, origbody = transform_goal goal' in
+  match newgoal_o with
+    None ->
+    begin
+      let goaldef : H.hes_rule = {H.var=goal.H.var; args=goal.H.args; fix=Fixpoint.Greatest; body=goal'} in
+      match res with
+        None ->
+         transform_newgoal defs_map goaldef :: defs
+      | Some newgoals ->
+         let defs_map' = List.fold_left (fun dm g -> D.add g.H.var g dm) defs_map newgoals in
+         P.pp_rule goaldef |> P.dbgn "Transformed Goal";
+         P.pp_list ~sep:"\n" P.pp_rule newgoals |> P.dbgn "New Goals";
+         transform_newgoal defs_map' goaldef :: newgoals @ defs
+    end
+  | Some newpreddef ->
+     begin
+       let goaldef : H.hes_rule = {H.var=goal.H.var; args=goal.H.args; fix=Fixpoint.Greatest; body=origbody} in
+       let extra_defs = 
+         match res with
+           None -> []
+         | Some newdefs ->
+            newdefs
+       in
+       let defs_map' = List.fold_left (fun dm g -> D.add g.H.var g dm) defs_map extra_defs
+                     |> D.add newpreddef.H.var newpreddef in
+       
+       P.pp_rule newpreddef |> P.dbgn "Transformed Goal";
+       (* P.pp_list ~sep:"\n" P.pp_rule newgoals |> P.dbgn "New Goals"; *)
+       goaldef:: transform_newgoal defs_map' newpreddef :: extra_defs @ defs
+    end
+     ;;
+  
     
