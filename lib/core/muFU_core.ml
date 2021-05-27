@@ -25,6 +25,7 @@ let transform (hes : H.hes) : H.hes =
   print_seperation aux goal;
 
   let alldefs : H.hes_rule list = transform_hes aux goal in
+  print_endline "~*~*~*~*~*~*~*~*~*~*~*";
   P.pp_list ~sep:"\n" P.pp_rule alldefs |> P.dbgn "Result";
   alldefs
 

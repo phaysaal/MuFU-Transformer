@@ -204,8 +204,8 @@ let get_arg p p_a =
 ;;
 
 let rec find_matching _X (params : string list) f f' =
-  P.pp_formula f' |> P.dbgn "Find Matching";
-  P.pp_formula f |> P.dbg "to ";
+  (* P.pp_formula f' |> P.dbgn "Find Matching";
+  P.pp_formula f |> P.dbg "to "; *)
   let fn = find_matching _X params f in
   
   let rec aux = function
@@ -227,7 +227,7 @@ let rec find_matching _X (params : string list) f f' =
      let args = List.map (fun p -> get_arg p p_a) params in
      true, implode_pred _X args
   | None ->
-     print_endline "No Matching";
+     (* print_endline "No Matching"; *)
      aux f'
 ;;
     
