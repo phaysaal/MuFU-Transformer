@@ -301,7 +301,9 @@ let explode_pred f =
       H.App (f1, f2) ->
        aux (f2::acc) f1
     | H.Var s -> s, acc
-    | _ -> raise (StrangeSituation "Unsupported Predicate Naming")
+    | f ->
+       P.pp_formula f |> P.dbg "ERROR";
+       raise (StrangeSituation "Unsupported Predicate Naming")
   in
   aux [] f
 ;;
@@ -335,7 +337,7 @@ let subs_vars params args f =
 ;;
 
 let exec_unfold defs_map f =
-  let (pred_name, args) : string * H.raw_hflz list = explode_pred f in
+  let (pred_name, args) : string * H.raw_hflz list = try explode_pred f with e -> print_endline "exec_unfold"; raise e in
   let pred = try D.find pred_name defs_map with e -> print_endline pred_name;raise e in
   let params : string list = pred.H.args in
   let temps = get_temps_n (List.length args) in
