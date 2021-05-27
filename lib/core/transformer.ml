@@ -142,17 +142,17 @@ and cnf_ext formula =
      mk H.mk_and (mk H.mk_or (f', cnf_ext f1) |> cnf_ext,
                   mk H.mk_or (f', cnf_ext f2) |> cnf_ext)
   (** Associativity and commutativity *)
-  | H.Or (f1, f2) ->
+  (* | H.Or (f1, f2) ->
      let f1' = cnf_ext f1 in
      let f2' = cnf_ext f2 in
      if f1=f1' && f2=f2' then
        formula
      else
-     H.Or (f1', f2') |> cnf_ext
-  (* | H.Or _ as f ->
+     H.Or (f1', f2') |> cnf_ext *)
+  | H.Or _ as f ->
      let fs = hflz_to_or_list f in
      let fs' = List.sort_uniq compare_raw_hflz fs in
-     mk_ors fs' *)
+     mk_ors fs'
   | H.And _ as f ->
      let fs = hflz_to_and_list f in
     let fs' = List.sort_uniq compare_raw_hflz fs in
