@@ -38,7 +38,7 @@ let rec pp_formula = function
   | H.And (f1, f2) -> "(" ^ pp_formula f1 ^ " /\\ " ^ pp_formula f2 ^ ")"
   | H.Abs (s, f) -> "\\" ^ s ^ "." ^ pp_formula f 
   | H.App (f1, f2) -> pp_formula f1 ^ " " ^ pp_formula f2
-  | H.Int i -> string_of_int i
+  | H.Int i -> if i < 0 then "(" ^ string_of_int i ^ ")" else string_of_int i
   | H.Op (o, fs) -> "(" ^ (List.map pp_formula fs |> pp_list id ~sep:(pp_op o)) ^ ")"
   | H.Pred (p, fs) -> List.map pp_formula fs |> pp_list id ~sep:(pp_pred p)
   | H.Forall (s, f) -> "∀ " ^ s ^ "." ^ pp_formula f
