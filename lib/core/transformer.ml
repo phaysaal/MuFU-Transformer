@@ -490,7 +490,7 @@ let uniq ls =
 
 let make_new_goal f =
   let newpredname = new_predicate_name () in
-  let fvs = fv f |> List.sort_uniq var_compare in
+  let fvs = U.fv f |> List.sort_uniq var_compare in
   let newpred = List.map H.mk_var fvs
                 |> U.implode_pred newpredname
   in
@@ -533,15 +533,15 @@ let snd_apply fn (a, b) =
 ;;
 
 let is_candidate s args =
-  List.exists (fun a -> let fvs = fv a in fvs = [s] || List.length fvs = 0) args
+  List.exists (fun a -> let fvs = U.fv a in fvs = [s] || List.length fvs = 0) args
 ;;
 
 let reduce_args sv args =
-  List.filter (fun (_, a) -> let fvs = fv a in fvs <> [sv] && List.length fvs > 0) args
+  List.filter (fun (_, a) -> let fvs = U.fv a in fvs <> [sv] && List.length fvs > 0) args
 ;;
 
 let reduce_args1 sv args =
-  List.filter (fun  a -> let fvs = fv a in fvs <> [sv] && List.length fvs > 0) args
+  List.filter (fun  a -> let fvs = U.fv a in fvs <> [sv] && List.length fvs > 0) args
 ;;
 
 let rec ex_trans_formula s predname newpredname = function
@@ -680,7 +680,42 @@ let transform_hes (defs : H.hes) goal =
        P.pp_rule newpreddef |> P.dbgn "Transformed Goal";
        (* P.pp_list ~sep:"\n" P.pp_rule newgoals |> P.dbgn "New Goals"; *)
        goaldef:: transform_newgoal defs_map' newpreddef :: extra_defs @ defs
-    end
-     ;;
+     end
+;;
   
     
+(**
+   Original Algorithm
+
+   find_body_and_fold body iters
+   ------------------------------
+   body = expandExists body
+   body = simplifyExists body
+   body = expandConjSubexpr body
+   disj = getDisj body
+   for all it in disj
+       e = fold_conj it iters
+       disj2 = add e to disj2
+   for all it in disj2
+       if isOpX<FAPP> then
+          add it to constr
+          remove it from disj2
+   if size of disj2  < 2 then
+       for all it in disj2
+          add it to constr
+       return disjoin constr efac
+   else
+       flaOrig = disjoin constr efac
+       filter fla isConst inserter(freevars, freevars.begin())
+       fvar = new_fvar freevars
+       flaRel = fapp fvar freevars
+       ...
+       
+   return disjoin constr efac
+   --------------------------------
+
+   expandExists body
+   --------------------------------
+   dagVisit rw(new ExpandExists) exp
+   --------------------------------
+*)

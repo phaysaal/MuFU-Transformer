@@ -1,8 +1,9 @@
 open Hflmc2_syntax
 
-   module P = Printer
+module P = Printer
 module H = Raw_hflz
-
+module A = ArithmeticProcessor
+       
 let counter = ref 0;;
 let newvar () =
   let s = ".." ^ (string_of_int !counter) in
@@ -44,8 +45,7 @@ let  select_from_list aux fn f fs =
     f, false
 ;;
 
-let subs_var to_be by f =
- 
+let subs_var to_be by f = 
   let rec aux = function
   | H.Bool _ as f -> f, false
   | H.Var x when x = to_be -> by, true
@@ -100,92 +100,302 @@ let subs_f to_be by f =
   aux f |> fst
 ;;
 
-let rec unify_arith e1 e2 =
+let rec subtract s = function
+    [] -> []
+  | s'::xs when s'=s -> subtract s xs
+  | x ::xs -> x::subtract s xs;;
+
+let fv f =
+  let rec fv f =
+    match f with
+    | H.Bool _ -> []
+    | H.Var s -> [s]
+    | H.Or (f1, f2) ->
+       fv f1 @ fv f2
+    | H.And (f1, f2) ->
+       fv f1 @ fv f2
+    | H.Abs (s, f1) ->
+       fv f1 |> (subtract s)
+    | H.App (H.Var _, f2) ->
+       fv f2
+    | H.App (f1, f2) ->
+       fv f1 @ fv f2
+    | H.Int _ -> []
+    | H.Op (_, f1) ->
+       List.map fv f1 |> List.concat
+    | H.Pred (_, f1) ->
+       List.map fv f1 |> List.concat
+    | H.Exists (s, f1) ->
+       fv f1 |> (subtract s)
+    | H.Forall (s, f1) ->
+       fv f1 |> (subtract s)
+  in
+  List.sort_uniq String.compare (fv f)
+;;
+
+let rec list_to_binary = function
+    H.Op (Arith.Add, []) -> H.Int 0
+  | H.Op (Arith.Sub, []) -> H.Int 0
+  | H.Op (_, []) -> H.Int 1
+  | H.Op (_, [x]) -> x
+  | H.Op (o, xs) -> 
+     List.fold_left (fun acc x -> H.Op (o, [acc;x])) (List.hd xs) (List.tl xs) 
+  | H.Pred (Formula.Eq, []) -> H.Bool true
+  | H.Pred (_, []) -> H.Bool false
+  | H.Pred (_, [x]) -> x
+  | H.Pred (o, xs) ->
+     begin
+       match xs with
+         a::b::xs' ->
+          let u = H.Pred (o, [a;b]) in
+          List.fold_left (fun acc x -> H.And (acc, H.Pred(o, [a;x]))) u xs'
+       | _ -> raise A.UnexpectedExpression
+     end
+  | _ -> raise A.UnexpectedExpression;;
+
+let rec same_set xs ys =
+  match xs, ys with
+    [], _ -> ys = []
+  | _, [] -> false
+  | _, y::ys ->
+     same_set (List.filter (fun x' -> y <> x') xs) ys
+;;
+
+let print_model = function
+    None -> print_endline "No model"
+  | Some xs ->
+     P.pp_list (fun (x,r) -> P.pp_formula x ^ ":=" ^ P.pp_formula r) xs |> P.dbg "Model" 
+;;
+
+let add_to_model x r = function
+    None -> None
+  | Some zs as u ->
+     begin
+       try
+         let (_, r') = List.find (fun (v,_) -> v=x) zs in
+         if A.eval (A.sum_of_mult r) = A.eval (A.sum_of_mult r') then
+           u
+         else
+           None
+       with
+         Not_found ->
+         Some ((x,r)::zs)
+     end
+;;
+
+let in_model v = function
+    None -> false
+  | Some xs ->
+     List.exists (fun (x,_) -> x=v) xs
+;;
+
+let get_model v = function
+    None -> raise A.UnexpectedExpression
+  | Some xs ->
+     try
+       List.find (fun (x,_) -> x=v) xs |> snd
+     with
+       _ -> raise A.UnexpectedExpression
+;;
+
+let var_text = function
+    H.Var v -> v
+  | _ -> raise A.UnexpectedExpression
+;;
+
+let rec unify_op u e1 e2 =
+  (* print_string "unify_op# ";
+  print_model u; *)
   match e1, e2 with
-    H.Var _, _ -> Some [(e1, e2)]
-  | H.Op (op1, es1), H.Op (op2, es2) when op1=op2 ->
-     if List.length es1 = List.length es2 then
-       let es12 = List.combine es1 es2 in
-       unify_list es12
-     else
-       None
+    H.Var v, _ -> add_to_model e1 (A.normalize_v v e2) u
+  | H.Op (_, _), H.Op (_, _) ->
+     let e1' = list_to_binary e1 in
+     let e2' = list_to_binary e2 in
+     (* print_string "unify_op* ";
+     print_model u; *)
+     unify_arith u e1' e2'
   | _ -> None
 
-and unify_list = function
+and straight_match u e1 e2 =
+  (* P.dbg "e1" (P.pp_formula e1);
+  P.dbg "e2" (P.pp_formula e2); *)
+  match e1, e2 with
+    H.Int i1, H.Int i2 -> if i1=i2 then u else None
+  | H.Var _, H.Var _ -> add_to_model e1 e2 u
+  | H.Op (o1, a1::b1::_), H.Op (o2, a2::b2::_) when o1=o2 ->
+     let u1 = straight_match u a1 a2 in
+     straight_match u1 b1 b2
+  | _, _ -> None
+  
+and unify_arith u e1 e2 =
+  (* print_string "unify_arith(1) ";
+  print_model u;
+  P.dbg "e1" (P.pp_formula e1);
+  P.dbg "e2" (P.pp_formula e2); *)
+  let fv1 = fv e1 in
+  let fv2 = fv e2 in
+  if not (same_set fv1 fv2) then
+    None
+  else
+    match u with
+      None -> None
+    | Some xs ->
+       let e1' = List.fold_left (fun e v ->
+                     let vv = H.Var v in
+                     if in_model vv u then
+                       H.Op (Arith.Sub, [e;vv])
+                     else
+                       e
+                   ) e1 fv1 in
+       let e2' = List.fold_left (fun e v ->
+                     let vv = H.Var v in
+                     if in_model vv u then
+                       let r = get_model vv u in
+                       H.Op (Arith.Sub, [e;r])
+                     else
+                       e
+                   ) e2 fv1 in
+       (* P.dbg "e1'" (P.pp_formula e1');
+       P.dbg "e2'" (P.pp_formula e2'); *)
+       let e1'' = A.normalize e1' in
+       let e2'' = A.normalize e2' in
+       (* P.dbg "e1''" (P.pp_formula e1'');
+       P.dbg "e2''" (P.pp_formula e2''); *)
+       
+       
+       let e1' = List.fold_left (fun e (to_be, by) ->
+                     subs_var (var_text to_be) by e) e1 xs in
+
+       
+       let u' = straight_match u (A.normalize e1'') (A.normalize e2'') in
+       (* print_string "unify_arith(2) ";
+       print_model u'; *)
+       match u' with
+         Some _ -> u'
+       | None -> 
+          List.fold_left (fun u h ->
+              begin
+                let vh = H.Var h in
+
+                if in_model vh u then
+                  let r = get_model vh u in
+                  let e1' = subs_var h r e1 in
+                  if A.normalize_v h e1' = A.normalize_v h e2 then
+                    u
+                  else
+                    None
+                else
+                  begin
+                    
+                    
+                    let e1' = A.eval e1 in
+                    let e2' = A.eval e2 in
+                    (* P.dbg "e1'" (P.pp_formula e1');
+                    P.dbg "e2'" (P.pp_formula e2'); *)
+                    let a1 = A.sum_of_mult e1' in
+                    let a2 = A.sum_of_mult e2' in
+                    (* P.dbg "a1" (P.pp_formula a1);
+                    P.dbg "a2" (P.pp_formula a2); *)
+                    
+                    let (c1,d1) = A.cx_d h e1' in
+                    let (c2,d2) = A.cx_d h e2' in
+                    
+                    let d = d2 @ (A.neg_list d1) in
+                    let d' = A.list_div d c1 in
+                    let c' = A.list_div c2 c1 in
+                    let r = H.Op(Arith.Add, [H.Op (Arith.Mult, [vh;c']);d']) |> A.normalize_v h in
+                    (* P.dbg "r" (P.pp_formula r);
+                    print_model u; *)
+                    let u' = add_to_model vh r u in
+                    (* print_model u'; *)
+                    u'
+                  end
+              end) u fv1
+      
+and unify_list (u : (H.raw_hflz * H.raw_hflz) list option) = function
     [] -> Some []
   | (e1, e2)::args' ->
-     match unify_arith e1 e2 with
+     (* print_string "unify_list ";
+     print_model u; *)
+  
+     match unify_op u e1 e2 with
        None -> None
-     | Some r1 ->
-        match unify_list args' with
+     | Some r1 as u' ->
+        match unify_list u' args' with
           None -> None
         | Some r2 -> Some (r1@r2)
 ;;
 
-let rec unify_app args f1 f2 =
+let rec unify_app u args f1 f2 =
+  (* print_string "unify_app ";
+  print_model u; *)
   match f1, f2 with
     H.App (g1, h1), H.App (g2, h2) ->
-    unify_app ((h1,h2)::args) g1 g2
+    unify_app u ((h1,h2)::args) g1 g2
   | H.Var s1, H.Var s2 when s1=s2 ->
-     unify_list args
+     unify_list u args
   | _, _ -> None
 ;;
          
-let rec unify_pred f1 f2 =
+let rec unify_pred u f1 f2 =
   match f1, f2 with
     H.Pred (op1, es1), H.Pred (op2, es2) when op1 = op2 ->
      if List.length es1 = List.length es2 then
        let es12 = List.combine es1 es2 in
-       unify_list es12
+       unify_list u es12
      else
        None
   | H.App _, H.App _ ->
-     unify_app [] f1 f2
+     unify_app u [] f1 f2
   | H.Exists (s1, g1), H.Exists (s2, g2) ->
      let nv = H.Var (newvar ()) in
      let g1' = subs_var s1 nv g1 in
      let g2' = subs_var s2 nv g2 in
-     unify g1' g2'
+     unify' u g1' g2'
   | _, _ -> None
 
-and unify_disj f1 f2 =
+and unify_disj u f1 f2 =
   match f1, f2 with
     H.Or (g1, g2), H.Or (h1, h2) ->
      begin
-       match unify_disj g1 h1 with
+       match unify_disj u g1 h1 with
          None -> None
-       | Some r1 ->
+       | Some r1 as u' ->
           begin
-            match unify_disj g2 h2 with
+            (* print_string "unify_disj "; print_model u'; *)
+            match unify_disj u' g2 h2 with
               None -> None 
             | Some r2 ->
                Some (r1 @ r2)
           end
      end
   | _, _ ->
-     unify_pred f1 f2
+     unify_pred u f1 f2
 
-and unify_conj f1 f2 =
+and unify_conj u f1 f2 =
   match f1, f2 with
-    H.And (g1, g2), H.Or (h1, h2) ->
+    H.And (g1, g2), H.And (h1, h2) ->
      begin
-       match unify_disj g1 h1 with
+       match unify_disj u g1 h1 with
          None -> None
-       | Some r1 ->
+       | Some r1 as u' ->
           begin
-            match unify_disj g2 h2 with
+            match unify_conj u' g2 h2 with
               None -> None 
             | Some r2 ->
                Some (r1 @ r2)
           end
      end
   | _, _ ->
-     unify_disj f1 f2
+     unify_disj u f1 f2
 
 
-and  unify f1 f2 : (H.raw_hflz * H.raw_hflz) list option =
-  unify_conj f1 f2
+and unify' u f1 f2 : (H.raw_hflz * H.raw_hflz) list option =
+  unify_conj u f1 f2
 ;;
+
+let unify f1 f2 : (H.raw_hflz * H.raw_hflz) list option =
+  unify' (Some []) f1 f2
 
 let implode_pred newpredname args =
   let rec implode_pred newpredname = function
@@ -206,17 +416,24 @@ let get_arg p p_a =
 let rec find_matching _X (params : string list) f f' =
   (* P.pp_formula f' |> P.dbgn "Find Matching";
   P.pp_formula f |> P.dbg "to "; *)
+  
   let fn = find_matching _X params f in
   
   let rec aux = function
       H.Or (f1, f2) ->
        let b1, f1' = fn f1 in
-       let b2, f2' = fn f2 in
-       b1 || b2, H.mk_or f1' f2'
+       if b1 then
+         b1, H.mk_or f1' f2
+       else
+         let b2, f2' = fn f2 in
+         b2, H.mk_or f1' f2'
     | H.And (f1, f2) ->
        let b1, f1' = fn f1 in
-       let b2, f2' = fn f2 in
-       b1 || b2, H.mk_and f1' f2'
+       if b1 then
+         b1, H.mk_and f1' f2
+       else
+         let b2, f2' = fn f2 in
+         b2, H.mk_and f1' f2'
     | f ->
        false, f
   in
