@@ -431,7 +431,7 @@ let rec transform_newgoal defs_map (orig_goal : H.hes_rule) : H.hes_rule =
        let goal'' = aux def_map goal' (n-1) in
        goal''
   in
-  aux defs_map orig_goal 4
+  aux defs_map orig_goal 2
 ;;
 
 let rec subtract s = function
