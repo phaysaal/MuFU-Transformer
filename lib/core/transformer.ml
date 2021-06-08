@@ -436,6 +436,36 @@ let rec transform_newgoal defs_map (orig_goal : H.hes_rule) : H.hes_rule =
   aux defs_map orig_goal 2
 ;;
 
+let rec subtract s = function
+    [] -> []
+  | s'::xs when s'=s -> subtract s xs
+  | x ::xs -> x::subtract s xs;;
+
+let rec fv f =
+  match f with
+  | H.Bool _ -> []
+  | H.Var s -> [s]
+  | H.Or (f1, f2) ->
+     fv f1 @ fv f2
+  | H.And (f1, f2) ->
+     fv f1 @ fv f2
+  | H.Abs (s, f1) ->
+     fv f1 |> (subtract s)
+  | H.App (H.Var _, f2) ->
+     fv f2
+  | H.App (f1, f2) ->
+     fv f1 @ fv f2
+  | H.Int _ -> []
+  | H.Op (_, f1) ->
+     List.map fv f1 |> List.concat
+  | H.Pred (_, f1) ->
+     List.map fv f1 |> List.concat
+  | H.Exists (s, f1) ->
+     fv f1 |> (subtract s)
+  | H.Forall (s, f1) ->
+     fv f1 |> (subtract s)
+;;
+
 
 let var_compare x y =
   match x, y with
