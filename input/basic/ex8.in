@@ -1,8 +1,8 @@
 %HES
 
-G x y w z r =v Dplus (x + y + w) z r \/ (∃s1. ∃s2. ∃s3. Plus x z s1 /\ Plus y z s2 /\ Plus w z s3 /\ r + z + z = s1 + s2 + s3)
-Dplus x y r =v (y != 0 \/ r != x) /\ (y = 0 \/ Dplus x (y - 1) (r - 1))
-Plus x y r =μ (y = 0 /\ r = x) \/ (= y != 0 /\ Plus x (y - 1) (r - 1))
+G x y w z r =v Dplus (x + y + w) z r \/ (∃s1. ∃s2. ∃s3. Plus x z s1 /\ Plus y z s2 /\ Plus w z s3 /\ r + z + z = s1 + s2 + s3).
+Dplus x y r =v (y != 0 \/ r != x) /\ (y = 0 \/ Dplus x (y - 1) (r - 1)).
+Plus x y r =μ (y = 0 /\ r = x) \/ (y != 0 /\ Plus x (y - 1) (r - 1)).
 
 /*
 (declare-fun G (Int Int Int Int Int) Bool)
