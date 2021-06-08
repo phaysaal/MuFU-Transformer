@@ -9,6 +9,7 @@ module Z = Z3Interface
 module U = MatchMaker
          
 module D = Map.Make(String)
+module AP = ArithmeticProcessor
 
 exception StrangeSituation of string
 exception UnsupportedNow of string
@@ -314,7 +315,8 @@ let explode_pred f =
        P.pp_formula f |> P.dbg "ERROR";
        raise (StrangeSituation "Unsupported Predicate Naming")
   in
-  aux [] f
+  let r = aux [] f in
+  r
 ;;
 
 let rec get_temps_n n =
@@ -575,24 +577,118 @@ let step2 s f defs_map p_a fixpoint predname =
 
 ;;
 
+let rec conj_to_list = function
+    H.And (f1, f2) ->
+    conj_to_list f1 @ conj_to_list f2
+  | x -> [x]
+;;
+
+let rec list_to_and = function
+    [] -> H.Bool true
+  | [x] -> x
+  | x::xs -> H.And (x, list_to_and xs)
+;;
+
+let get_value x f =
+  match f with
+    H.Pred (Formula.Eq, a::b::_) ->
+     begin
+       print_endline "----------";
+       print_endline x;
+       a |> P.pp_formula |> P.dbg "a";
+       b |> P.pp_formula |> P.dbg "b";
+       let (c1,d1) = AP.cx_d x a in
+       let (c2,d2) = AP.cx_d x b in
+       let r =
+         match c1 with
+           [] ->
+            (** d1 = x*c2+d2 ==> x = (d1-d2)/c2  *)
+            print_endline "@1";
+            H.Op (Arith.Div, [H.Op (Arith.Sub, [AP.list_to_exp d1; AP.list_to_exp d2]); AP.list_to_exp c2])
+         | _ ->
+            match c2 with
+              [] ->
+              (** x*c1+d1 = d2 ==> x = (d2-d1)/c1  *)
+              print_endline "@2";
+              c1 |> AP.pp_pairss |> P.dbg "c1";
+              H.Op (Arith.Div, [H.Op (Arith.Sub, [AP.list_to_exp d2; AP.list_to_exp d1]); AP.list_to_exp c1])
+            | _ ->
+               (** x*c1+d1 = x*c2+d2 ==> x = (d2-d1)/(c1-c2)  *)
+              print_endline "@3";
+              c1 |> AP.pp_pairss |> P.dbg "c1";
+              H.Op (Arith.Div, [H.Op (Arith.Sub, [AP.list_to_exp d2; AP.list_to_exp d1]); H.Op (Arith.Sub, [AP.list_to_exp c1; AP.list_to_exp c2])])
+       in
+       P.pp_formula r |> P.dbg "r";
+       let r = AP.normalize r in
+       print_endline "###";
+       r
+       
+     end
+  | _ -> raise (UnsupportedNow "get_value")
+;;
+
+let combine_res = List.hd
+;;
+
+(** SINGLE CONSTRAINT *)
+let rec find_constraint x f =
+  let conjs = conj_to_list f in
+  print_int (List.length conjs); print_endline "";
+  let constraints, nonconstraints = List.partition (function H.Pred _ as c -> List.mem x (U.fv c) | _ -> false) conjs in
+  print_int (List.length constraints); print_endline "";
+  let vals = List.map (get_value x) constraints in
+  let value = combine_res vals in
+  P.pp_formula value |> P.dbg "value";
+  let nonconstraints' = List.map (U.subs_var x value) nonconstraints in
+  list_to_and nonconstraints', List.length nonconstraints' <> List.length conjs
+;;
+
+(**
+FIXV3 x y z r = (z = 0 \/ FIXV3 x y (z - 1) (r - 1))
+
+(FIXV2 x y z r) = ((z = 0) /\ (z + r - y) = x ) \/ ((z <> 0) /\ (FIXV2 x y (z - 1) (r - 1))) 
+
+*)
+
 let exec_exists_elim defs_map f =
   print_endline "====================";
   P.pp_formula f |> P.dbgn "Original";
-  let (_s, _f, _X, _args) =
+
+  let rec aux f =
     match f with
       H.Exists (s, f) ->
-      let predname, args = explode_pred f in
-      (s, f, predname, args)
-    | _ -> raise (StrangeSituation "Expects only Exists")
+       begin
+         let f', b = find_constraint s f in
+         if b then
+           (s, f', "", [], true)
+         else
+           let predname, args = explode_pred f in
+           (s, f, predname, args, false)
+       end
+    | _ ->
+       raise ( StrangeSituation "RRRRRRR")
   in
-  let _sv = H.mk_var _s in
-  let pred = D.find _X defs_map in
-  let fixpoint = pred.H.fix in
-  let p_a = List.combine pred.H.args _args in
-  if not (is_candidate _s _args) then
-    (None, f)
+  let (_s, _f, _X, _args, b) = aux f in
+  print_endline "DDD@@";
+  if b then
+    begin
+      
+      (None, _f)
+    end
   else
-    step2 _s _f defs_map p_a fixpoint _X
+    begin
+      let _sv = H.mk_var _s in
+      print_endline "DDD";
+      let pred = D.find _X defs_map in
+      print_endline "DDD";
+      let fixpoint = pred.H.fix in
+      let p_a = List.combine pred.H.args _args in
+      
+      if not (is_candidate _s _args) then
+        (None, f)
+      else
+        step2 _s _f defs_map p_a fixpoint _X
+    end
 ;;
 
 let rec exists_elim defs_map f =
@@ -607,8 +703,16 @@ let rec exists_elim defs_map f =
     let (res2, f2') = exists_elim defs_map f2 in
     let res = concat_option res1 res2 in
     (res, H.And (f1',f2'))
-  | H.Exists _ as f ->
-     exec_exists_elim defs_map f
+  | H.Exists (s,f1) as f ->
+     begin
+       print_endline ("EXISTS " ^ s);
+       let (op_res1, f1') = exists_elim defs_map f1 in
+       let (op_res2, f') = exec_exists_elim defs_map (H.Exists (s,f1')) in
+       match op_res1, op_res2 with
+         None, _ -> op_res2, f'
+       | _, None -> op_res1, f'
+       | Some xs, Some ys -> Some (xs@ys), f'
+     end
   | _ -> (None, f)
 ;;
 
@@ -621,6 +725,7 @@ let transform_hes (defs : H.hes) goal =
     |> exists_elim defs_map
     |> snd_apply normalize
   in
+  
   let newgoal_o, origbody = transform_goal goal' in
   match newgoal_o with
     None ->
