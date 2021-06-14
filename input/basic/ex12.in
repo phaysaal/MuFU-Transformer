@@ -1,3 +1,8 @@
+%HES
+
+G x z =v x > z \/ ∃y.Plus x y z.
+Plus x y r =μ (y = 0 /\ r = x) \/ Plus x (y - 1) (r - 1).
+
 /*
 (declare-fun G (Int Int) Bool)
 (declare-fun Plus (Int Int Int) Bool)

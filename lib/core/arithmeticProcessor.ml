@@ -26,8 +26,18 @@ let eval exp =
     | H.Op (Arith.Mult, H.Int 0::_::_) -> H.Int 0, true
     | H.Op (Arith.Mult, x::H.Int 1::_) -> eval_atomic x |> fst, true
     | H.Op (Arith.Mult, H.Int 1::x::_) -> eval_atomic x |> fst, true
-    | H.Op (Arith.Div, _::H.Int 0::_) -> raise UnexpectedExpression
-    | H.Op (Arith.Div, H.Int x::H.Int y::_) -> H.Int (x/y), true
+    | H.Op (Arith.Div, x::H.Op(Arith.Div, y::z::[])::[]) -> (** a/(b/c) = (a*c)/b *)
+       H.Op (Arith.Div, [H.Op (Arith.Mult, [x;z]);y]), true
+    | H.Op (Arith.Div, x::H.Int 1::_) -> x, true
+    | H.Op (Arith.Div, _::H.Int 0::_) as f ->
+       P.pp_formula f |> P.dbg " Exception";
+       raise UnexpectedExpression
+    | H.Op (Arith.Div, H.Int x::H.Int y::_) as f ->
+       let r = x/y in
+       if r*y = x then
+         H.Int (x/y), true
+       else
+         f, false
     | H.Op (Arith.Div, H.Int 0::_::_) -> H.Int 0, true
     | H.Op (Arith.Div, x1::x2::_) when fst(eval_atomic x1)=fst(eval_atomic x2) -> H.Int 1, true
     | H.Op (Arith.Mod, H.Int 0::_::_) -> H.Int 0, true
@@ -36,6 +46,7 @@ let eval exp =
   in
   
   let rec eval_comp = function
+    | H.Op (Arith.Sub, x::H.Op(Arith.Sub, H.Int 0::y::_)::_) -> H.Op (Arith.Add, [x;y]), true
     | H.Op (op, e1::(H.Op (Arith.Mult, e2::(H.Int (-1))::_))::_)
     | H.Op (op, e1::(H.Op (Arith.Mult, (H.Int (-1))::e2::_))::_) when op = Arith.Add || op = Arith.Sub->
        begin
@@ -43,7 +54,11 @@ let eval exp =
          match op with
            Arith.Add -> Arith.Sub 
          | Arith.Sub -> Arith.Add
-         | _ -> raise UnexpectedExpression
+         | Arith.Div ->
+            print_endline "DIV";
+            raise UnexpectedExpression
+         | _ ->
+            raise UnexpectedExpression
          in
          H.Op (op', e1::e2::[]) |> eval_comp |> fst, true
        end
@@ -58,24 +73,27 @@ let eval exp =
        
     | H.Op (o, x::y::_) ->
        begin
-         
-         
          let x', bx = eval_comp x in
          let y', by = eval_comp y in
          
          if bx && by then
            H.Op (o, x::y::[]) |> eval_comp |> fst, true
          else
-           let expr', b = H.Op (o, x'::y'::[]) |> eval_atomic in
-           if b then
-             expr' |> eval_comp
-           else
-             expr', false
+           begin
+             let f' = H.Op (o, [x';y']) in
+             (* P.pp_formula f' |> P.dbg "f'"; *)
+             let expr', b = f' |> eval_atomic in
+             (* P.pp_formula expr' |> P.dbg "expr'"; *)
+             if b then
+               expr' |> eval_comp
+             else
+               expr', false
+           end
        end
     | x -> x, false
-    in 
-    let res = eval_comp exp |> fst in
-    res
+  in
+  let res = eval_comp exp |> fst in
+  res
 ;;
 
 (*
@@ -109,15 +127,21 @@ let sum_of_mult f =
 ;;
 
 let neg_list xs =
-  List.map (function (Arith.Add, x) -> (Arith.Sub, x)
-                                   | (Arith.Sub, x) -> (Arith.Add, x)
-                                   | x -> x) xs
+  List.map (function (Arith.Add, [(op, H.Int n)]) when n < 0 ->
+                      (Arith.Add, [(op, H.Int (0-n))])
+                   | (Arith.Add, x) -> (Arith.Sub, x)
+                   | (Arith.Sub, x) -> (Arith.Add, x)
+                   | x -> x) xs
 ;;
 
 let inv_list xs =
   List.map (function (Arith.Mult, x) -> (Arith.Div, x)
                                    | (Arith.Div, x) -> (Arith.Mult, x)
                                    | x -> x) xs
+;;
+
+let inv_sum_list xs =
+  List.map (fun (op, ys) -> (op, inv_list ys)) xs
 ;;
 
 
@@ -192,23 +216,47 @@ let sum_list f =
          (r, x::xs')
     in
     let r, xs' = reduce_int 0 f in
-    xs' @ [(Arith.Add, [(Arith.Mult, H.Int r)])]
+    if r = 0 then
+      xs'
+    else
+      xs' @ [(Arith.Add, [(Arith.Mult, H.Int r)])]
   in
+  (* P.pp_formula f |> P.dbg "-----\nf";
+  pp_pairss (f |> sum_list) |> P.dbg "sum_list";
+  pp_pairss (f |> sum_list |> reduce_sum) |> P.dbg "reduce_sum";
+  pp_pairss (f |> sum_list |> reduce_sum |> reduce_int) |> P.dbg "reduce_int"; *)
   f |> sum_list |> reduce_sum |> reduce_int
 ;;
-  
+
+let var_to_str = function
+    H.Var s -> s
+  | _ -> ""
+;;
+     
 let cx_d v f =
+(*  print_endline "**********";
+  f |> P.pp_formula |> P.dbg "f";
+  v |> P.id |> P.dbg "v";
+ *)
   let is_in v = function
       H.Var w -> w = v
     | _ -> false
   in
   let mult_compare v f1 f2 =
-    if H.show_raw_hflz f2 = v then
-      1
-    else if H.show_raw_hflz f1 = v then
-      -1
+    
+    if var_to_str f2 = v then
+      begin
+        
+        1
+      end
+    else if var_to_str f1 = v then
+      begin
+        
+        -1
+      end
     else
-      String.compare (H.show_raw_hflz f1) (H.show_raw_hflz f2)
+      let r = String.compare (H.show_raw_hflz f1) (H.show_raw_hflz f2) in
+      if r > 0 then 1 else -1
   in
   let sum_compare v f1 f2 =
     
@@ -221,7 +269,8 @@ let cx_d v f =
     else if is_in v (List.hd pairs_f2) then
       1
     else
-      String.compare (P.pp_list P.pp_formula pairs_f1) (P.pp_list P.pp_formula pairs_f2)  
+      let r = String.compare (P.pp_list P.pp_formula pairs_f1) (P.pp_list P.pp_formula pairs_f2) in
+      if r > 0 then 1 else -1
   in
   
   
@@ -260,7 +309,7 @@ let cx_d v f =
               ) cx in
     (c, d)
   in
- 
+  (* f |> sum_list |> sort_sum |> partition_sum |> fst |> P.pp_list pp_pairs |> P.dbg "after sumlist"; *)
   f |> sum_list |> sort_sum |> partition_sum |> coeff (* |> reconstruct *)
 ;;
 
@@ -283,39 +332,123 @@ let rec list_to_mult = function
     [] -> H.Int 0
   | [(Arith.Mult, x)] -> x
   | [(Arith.Div, x)] -> H.Op (Arith.Div, [H.Int 1;x])                  
-  | (Arith.Mult, x)::(Arith.Div, y)::xs ->
-     let xs_exp = list_to_mult xs in
-     let y_xs = H.Op (Arith.Div, [y;inv xs_exp]) in
-     H.Op (Arith.Mult, [x;y_xs])
+  | (Arith.Mult, x)::((Arith.Div, _)::_ as xs) ->
+     let inv_xs = inv_list xs in
+     let xs_exp = list_to_mult inv_xs in
+     (* let y_xs = H.Op (Arith.Div, [y;inv xs_exp]) in *)
+     H.Op (Arith.Div, [x;xs_exp])
   | (Arith.Mult, x)::ys ->
      H.Op (Arith.Mult, [x;list_to_mult ys])
-  | _ -> raise UnexpectedExpression;;
+  | f ->
+     P.pp_list pp_pair f |> P.dbg " Exception in list_to_mult";
+     raise UnexpectedExpression;;
+
+let rec simplify_mult = function
+    [] -> []
+  | (Arith.Mult, x)::xs ->
+     let duals, others = List.partition (function (Arith.Div, y) when x=y -> true | _ -> false) xs in
+     if List.length duals > 0 then
+       simplify_mult (List.tl duals @ others)
+     else
+       (Arith.Mult, x)::simplify_mult xs
+  | (Arith.Div, x)::xs ->
+     let duals, others = List.partition (function (Arith.Mult, y) when x=y -> true | _ -> false) xs in
+     if List.length duals > 0 then
+       simplify_mult (List.tl duals @ others)
+     else
+       (Arith.Div, x)::simplify_mult xs
+  | _ ->
+     raise UnexpectedExpression;;
+
+let simplify_mult' (op, xs) =
+  (op, simplify_mult xs)
+    
+let rec simplify_sum = function
+    [] -> []
+  | (Arith.Add, x)::xs ->
+     let duals, others = List.partition (function (Arith.Sub, y) when x=y -> true | _ -> false) xs in
+     if List.length duals > 0 then
+       simplify_sum (List.tl duals @ others)
+     else
+       (Arith.Add, simplify_mult x)::simplify_sum xs
+  | (Arith.Sub, x)::xs ->
+     let duals, others = List.partition (function (Arith.Add, y) when x=y -> true | _ -> false) xs in
+     if List.length duals > 0 then
+       simplify_sum (List.tl duals @ others)
+     else
+       (Arith.Sub, simplify_mult x)::simplify_sum xs
+  | _ ->
+     raise UnexpectedExpression;;
 
 let rec list_to_sum = function
     [] -> H.Int 0
   | [(Arith.Add, x)] -> list_to_mult x
   | [(Arith.Sub, x)] -> H.Op (Arith.Sub, [H.Int 0; list_to_mult x])                  
-  | (Arith.Add, x)::(Arith.Sub, y)::xs ->
-     let xs_exp = list_to_sum xs in
-     let y_xs = H.Op (Arith.Sub, [list_to_mult y;neg xs_exp]) in
-     H.Op (Arith.Add, [list_to_mult x;y_xs])
+  | (Arith.Add, x)::((Arith.Sub, _)::_ as xs) ->
+     (* P.pp_list pp_pairs xs |> P.dbg " xs"; *)
+     (** +x -y [+z; +w; +v] *)
+     (** +x -y [-z; -w; -v] *)
+
+     (** +x - [+y; -z; -w; -v] *)
+     (** +x - [+y; +z; +w; +v] *)
+     
+     let neg_xs = neg_list xs in
+     (* P.pp_list pp_pairs neg_xs |> P.dbg " neg xs"; *)
+     
+     let xs_exp = list_to_sum neg_xs in
+     (* P.pp_formula xs_exp |> P.dbg " xs_exp"; *)
+     (** +x -y +(z+w) *)
+     (** +x -(y-(z+w)) *)
+     (*     let y_xs = H.Op (Arith.Sub, [list_to_mult y;xs_exp]) in *)
+     (** x + y + z) *)
+     H.Op (Arith.Sub, [list_to_mult x;xs_exp])
   | (Arith.Add, x)::ys ->
      H.Op (Arith.Add, [list_to_mult x;list_to_sum ys])
-  | _ -> raise UnexpectedExpression;;
+  | (Arith.Sub, _)::_ as xs ->
+     H.Op (Arith.Sub, [H.Int 0;list_to_sum (neg_list xs)])
+  | f ->
+     P.pp_list pp_pairs f |> P.dbg " Exception in list_to_sum";
+     raise UnexpectedExpression;;
 
 let list_to_exp xs =
-  list_to_sum xs |> eval
+  let f' = list_to_sum (simplify_sum xs) in
+  (* P.dbg "list_to_sum" (P.pp_formula f'); *)
+  f' |> eval
+  
 ;;
 
 (*
   a/(a+b) --> (a/a)+(a/b) 
   1/(1+2)=1/3     1/1 + 1/2=3/2
   (a+b)/(c+d) --> a/(a+b) + b/(c+d)
-*)
+ *)
+
 let list_div xs ys =
-  let x = list_to_exp xs in
-  let y = list_to_exp ys in
-  H.Op (Arith.Div, [x;y]) |> sum_of_mult |> eval
+
+  let ys', xs' =
+    match ys with
+      (Arith.Sub, _)::_ ->
+      neg_list ys, neg_list xs
+    | _ -> ys, xs
+  in
+  
+  let op, ys'' =
+    match ys' with
+      (_, (Arith.Div, _)::_)::_ ->
+      Arith.Mult, inv_sum_list ys'
+    | _ ->
+       Arith.Div, ys'
+  in
+  
+  (* P.dbg "xs'.." (P.pp_list pp_pairs xs');
+  P.dbg "ys'.." (P.pp_list pp_pairs ys');
+  P.dbg "ys''.." (P.pp_list pp_pairs ys''); *)
+  let x = list_to_exp xs' in
+  let y = list_to_exp ys'' in
+  (* P.dbg "x.." (P.pp_formula x);
+  P.dbg "y.." (P.pp_formula y); *)
+  
+  H.Op (op, [x;y]) |> sum_of_mult |> eval
 ;;
 
 let reconstruct v (c, d) =
@@ -335,5 +468,5 @@ let normalize f =
   P.dbg "eval + sum_of_mult" (P.pp_formula (f |> eval |> sum_of_mult));
   P.dbg "eval + sum_of_mult + sum_list" (pp_pairss (f |> eval |> sum_of_mult |> sum_list));
   P.dbg "eval + sum_of_mult + sum_list + list_to_exp" (P.pp_formula (f |> eval |> sum_of_mult |> sum_list |> list_to_exp)); *)
-  f |> eval |> sum_of_mult |> sum_list |> list_to_exp |> eval
+  f |> eval |> sum_of_mult |> sum_list |> list_to_exp
 ;;

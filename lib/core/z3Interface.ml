@@ -131,7 +131,8 @@ let rec pred_to_z3 ctx bounds = function
      )
   | H.And (f1, f2) ->
      Boolean.mk_and ctx [pred_to_z3 ctx bounds f1; pred_to_z3 ctx bounds f2]
-  | _ ->
+  | f ->
+     P.pp_formula f |> P.dbg "Unsupported Formula for z3 conversion";
      raise (UnsupportedFormula "Pred _")
 ;;
 
@@ -188,4 +189,24 @@ let is_tautology f =
       false
   );
 ;;
+
+
+let is_unsat f =
+  let cfg = [("proof", "true")] in
+  let ctx = mk_context cfg in
+  let g = (mk_goal ctx true false false) in
+  let expr' = hflz_to_z3 ctx f in
+  Goal.add g [ expr' ];
+   (
+    let solver = (mk_solver ctx None) in
+    (List.iter (fun a -> (Solver.add solver [ a ])) (get_formulas g)) ;
+    
+    let r = check solver [] in
+    if r == SATISFIABLE then
+      false
+    else if r == UNSATISFIABLE then
+      true
+    else
+      false
+  );
 
