@@ -1,3 +1,8 @@
+%HES
+
+G x y =v (y < 0) \/ (∃r. (Mult x y r)).
+Mult x y r =μ (y = 0 /\ r = 0) \/ (y != 0 /\ Mult x (y - 1) (r - x)).
+
 /*
 (declare-fun G (Int Int) Bool)
 (declare-fun Mult (Int Int Int) Bool)

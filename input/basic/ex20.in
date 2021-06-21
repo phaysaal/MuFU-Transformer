@@ -1,3 +1,9 @@
+%HES
+
+G x y a r =v (NegMult x y r) \/ (MultAcc x y a (r + a)).
+NegMult x y r =v (y != 0 \/ r != 0) /\ ((y = 0) \/ (NegMult x (y - 1) (r - x))).
+MultAcc x y a r =μ ((y = 0) /\ (r = a)) \/ ((y != 0) /\ MultAcc x (y - 1) a (r - x)).
+
 /*
 
 (declare-fun G (Int Int Int Int) Bool)

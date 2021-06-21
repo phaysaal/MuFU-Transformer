@@ -33,5 +33,164 @@ Plus x y r =μ (y = 0 /\ r = x) \/ (y != 0 /\ Plus x (y - 1) (r - 1)).
 */
 
 /*
+Goal::             
+G x y w z r =v (Dplus ((x+y)+w) z r \/ ∃s1.∃s2.∃s3.(Plus x z s1 /\ (Plus y z s2 /\ (Plus w z s3 /\ ((r+z)+z)=((s1+s2)+s3)))))
+AUX:: 
+Dplus x y r =v ((y<>0 \/ r<>x) /\ (y=0 \/ Dplus x (y-1) (r-1)))
+Plus x y r =μ ((y=0 /\ r=x) \/ (y<>0 /\ Plus x (y-1) (r-1)))
+Goal: (Dplus ((x+y)+w) z r \/ ∃s1.∃s2.∃s3.(Plus x z s1 /\ (Plus y z s2 /\ (Plus w z s3 /\ ((r+z)+z)=((s1+s2)+s3)))))
+DNF: (Dplus ((x+y)+w) z r \/ ∃s1.∃s2.∃s3.(Plus x z s1 /\ (Plus y z s2 /\ (Plus w z s3 /\ ((r+z)+z)=((s1+s2)+s3)))))
+OR: (Dplus ((x+y)+w) z r \/ ∃s1.∃s2.∃s3.(Plus x z s1 /\ (Plus y z s2 /\ (Plus w z s3 /\ ((r+z)+z)=((s1+s2)+s3)))))
+====================
+Original: 
+(Plus x z s1 /\ (Plus y z s2 /\ (Plus w z s3 /\ ((r+z)+z)=((s1+s2)+s3))))
+f: 
+(Plus x z s1 /\ (Plus y z s2 /\ Plus w z (r+(z-(s1+s2)))))
+Unfolded: (((z=0 /\ s1=x) \/ (z<>0 /\ Plus x (z-1) (s1-1))) /\ (((z=0 /\ s2=y) \/ (z<>0 /\ Plus y (z-1) (s2-1))) /\ ((z=0 /\ (r+(z-(s1+s2)))=w) \/ (z<>0 /\ Plus w (z-1) ((r+(z-(s1+s2)))-1)))))
+QVs: s1,s2
+DNF: (((((z=0 /\ s1=x) /\ ((z=0 /\ s2=y) /\ (z=0 /\ (r+(z-(s1+s2)))=w))) \/ ((z=0 /\ s1=x) /\ ((z=0 /\ s2=y) /\ (z<>0 /\ Plus w (z-1) ((r+(z-(s1+s2)))-1))))) \/ (((z=0 /\ s1=x) /\ ((z<>0 /\ Plus y (z-1) (s2-1)) /\ (z=0 /\ (r+(z-(s1+s2)))=w))) \/ ((z=0 /\ s1=x) /\ ((z<>0 /\ Plus y (z-1) (s2-1)) /\ (z<>0 /\ Plus w (z-1) ((r+(z-(s1+s2)))-1)))))) \/ ((((z<>0 /\ Plus x (z-1) (s1-1)) /\ ((z=0 /\ s2=y) /\ (z=0 /\ (r+(z-(s1+s2)))=w))) \/ ((z<>0 /\ Plus x (z-1) (s1-1)) /\ ((z=0 /\ s2=y) /\ (z<>0 /\ Plus w (z-1) ((r+(z-(s1+s2)))-1))))) \/ (((z<>0 /\ Plus x (z-1) (s1-1)) /\ ((z<>0 /\ Plus y (z-1) (s2-1)) /\ (z=0 /\ (r+(z-(s1+s2)))=w))) \/ ((z<>0 /\ Plus x (z-1) (s1-1)) /\ ((z<>0 /\ Plus y (z-1) (s2-1)) /\ (z<>0 /\ Plus w (z-1) ((r+(z-(s1+s2)))-1)))))))
+EX_dist: (((((z=0 /\ ∃s1.0=0) /\ ∃s2.0=0) \/ ((z=0 /\ z<>0) /\ ∃s2.∃s1.Plus w (z-1) ((r+(z-(s1+s2)))-1))) \/ (((z=0 /\ (z<>0 /\ ∃s1.0=0)) /\ ∃s2.Plus y (z-1) (s2-1)) \/ ((z=0 /\ z<>0) /\ ∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.Plus w (z-1) ((r+(z-(s1+s2)))-1))))) \/ ((((z=0 /\ (z<>0 /\ ∃s1.Plus x (z-1) (s1-1))) /\ ∃s2.0=0) \/ ((z=0 /\ z<>0) /\ ∃s2.∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1)))) \/ (((z=0 /\ (z<>0 /\ ∃s1.Plus x (z-1) (s1-1))) /\ ∃s2.Plus y (z-1) (s2-1)) \/ (z<>0 /\ ∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1)))))))
+tautology_elimination: (((z=0 \/ ((z=0 /\ z<>0) /\ ∃s2.∃s1.Plus w (z-1) ((r+(z-(s1+s2)))-1))) \/ (((z=0 /\ z<>0) /\ ∃s2.Plus y (z-1) (s2-1)) \/ ((z=0 /\ z<>0) /\ ∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.Plus w (z-1) ((r+(z-(s1+s2)))-1))))) \/ (((z=0 /\ (z<>0 /\ ∃s1.Plus x (z-1) (s1-1))) \/ ((z=0 /\ z<>0) /\ ∃s2.∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1)))) \/ (((z=0 /\ (z<>0 /\ ∃s1.Plus x (z-1) (s1-1))) /\ ∃s2.Plus y (z-1) (s2-1)) \/ (z<>0 /\ ∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1)))))))
+unsat_elimination: (z=0 \/ (z<>0 /\ ∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1)))))
+Normalized: (z=0 \/ (z<>0 /\ ∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1)))))
+QVs: s1,s2
+DNF: (Plus x z s1 /\ (Plus y z s2 /\ Plus w z (r+(z-(s1+s2)))))
+EX_dist: ∃s2.(Plus y z s2 /\ ∃s1.(Plus w z (r+(z-(s1+s2))) /\ Plus x z s1))
+tautology_elimination: ∃s2.(Plus y z s2 /\ ∃s1.(Plus w z (r+(z-(s1+s2))) /\ Plus x z s1))
+unsat_elimination: ∃s2.(Plus y z s2 /\ ∃s1.(Plus w z (r+(z-(s1+s2))) /\ Plus x z s1))
+Normalized: ∃s2.(Plus y z s2 /\ ∃s1.(Plus w z (r+(z-(s1+s2))) /\ Plus x z s1))
+Before Fold: 
+(z=0 \/ (z<>0 /\ ∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1)))))
+Find Matching: 
+(z=0 \/ (z<>0 /\ ∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1)))))
+to : ∃s2.(Plus y z s2 /\ ∃s1.(Plus w z (r+(z-(s1+s2))) /\ Plus x z s1))
+No model
+Find Matching: 
+z=0
+to : ∃s2.(Plus y z s2 /\ ∃s1.(Plus w z (r+(z-(s1+s2))) /\ Plus x z s1))
+No model
+Find Matching: 
+(z<>0 /\ ∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1))))
+to : ∃s2.(Plus y z s2 /\ ∃s1.(Plus w z (r+(z-(s1+s2))) /\ Plus x z s1))
+No model
+Find Matching: 
+z<>0
+to : ∃s2.(Plus y z s2 /\ ∃s1.(Plus w z (r+(z-(s1+s2))) /\ Plus x z s1))
+No model
+Find Matching: 
+∃s2.(Plus y (z-1) (s2-1) /\ ∃s1.(Plus w (z-1) ((r+(z-(s1+s2)))-1) /\ Plus x (z-1) (s1-1)))
+to : ∃s2.(Plus y z s2 /\ ∃s1.(Plus w z (r+(z-(s1+s2))) /\ Plus x z s1))
+unification set Model: y:=y,z:=(z-1),NV0:=(NV0-1),w:=w,(r+(z-(NV1+NV0))):=((r+(z-(NV1+NV0)))-1),x:=x,NV1:=(NV1-1)
+sorted Model: y:=y,z:=(z-1),NV0:=(NV0-1),w:=w,x:=x,NV1:=(NV1-1),(r+(z-(NV1+NV0))):=((r+(z-(NV1+NV0)))-1)
+unify_arith(1) Model: NV1:=(NV1+(-1)),x:=x,w:=w,NV0:=(NV0+(-1)),z:=(z+(-1)),y:=y
+e1: (r+(z-(NV1+NV0)))
+e2: ((r+(z-(NV1+NV0)))-1)
+Model: r:=(r+(-2)),NV1:=(NV1+(-1)),x:=x,w:=w,NV0:=(NV0+(-1)),z:=(z+(-1)),y:=y
+After Fold: 
+(z=0 \/ (z<>0 /\ FIXPRED1 x y w (z+(-1)) (r+(-2))))
+EX_dist: (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+tautology_elimination: (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+New Goal: (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+Origbody: FIXPRED2 r w x y z
+Some
+Transformed Goal: 
+FIXPRED2 r w x y z =v (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+-----------
+Original: (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+Unfolded: (((z<>0 \/ r<>((x+y)+w)) /\ (z=0 \/ Dplus ((x+y)+w) (z-1) (r-1))) \/ (z=0 \/ (z<>0 /\ FIXPRED1 x y w (z+(-1)) (r+(-2)))))
+Unfolded: (((z<>0 \/ r<>((x+y)+w)) /\ (z=0 \/ Dplus ((x+y)+w) (z-1) (r-1))) \/ (z=0 \/ (z<>0 /\ FIXPRED1 x y w (z+(-1)) (r+(-2)))))
+EX_dist: (((z<>0 \/ r<>((x+y)+w)) /\ (z=0 \/ Dplus ((x+y)+w) (z-1) (r-1))) \/ (z=0 \/ (z<>0 /\ FIXPRED1 x y w (z+(-1)) (r+(-2)))))
+tautology_elimination: (z=0 \/ (Dplus ((x+y)+w) (z-1) (r-1) \/ FIXPRED1 x y w (z+(-1)) (r+(-2))))
+Normalized Body: (z=0 \/ (Dplus ((x+y)+w) (z-1) (r-1) \/ FIXPRED1 x y w (z+(-1)) (r+(-2))))
+Before Fold: 
+(z=0 \/ (Dplus ((x+y)+w) (z-1) (r-1) \/ FIXPRED1 x y w (z+(-1)) (r+(-2))))
+Find Matching: 
+(z=0 \/ (Dplus ((x+y)+w) (z-1) (r-1) \/ FIXPRED1 x y w (z+(-1)) (r+(-2))))
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+z=0
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+(Dplus ((x+y)+w) (z-1) (r-1) \/ FIXPRED1 x y w (z+(-1)) (r+(-2)))
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+unification set Model: ((x+y)+w):=((x+y)+w),z:=(z-1),r:=(r-1),x:=x,y:=y,w:=w,z:=(z+(-1)),r:=(r+(-2))
+sorted Model: z:=(z-1),r:=(r-1),x:=x,y:=y,w:=w,z:=(z+(-1)),r:=(r+(-2)),((x+y)+w):=((x+y)+w)
+unify_arith(1) No model
+e1: ((x+y)+w)
+e2: ((x+y)+w)
+No model
+Find Matching: 
+Dplus ((x+y)+w) (z-1) (r-1)
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+FIXPRED1 x y w (z+(-1)) (r+(-2))
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+After Fold: 
+(z=0 \/ (Dplus ((x+y)+w) (z-1) (r-1) \/ FIXPRED1 x y w (z+(-1)) (r+(-2))))
+GOAL': FIXPRED2 r w x y z =v (z=0 \/ (Dplus ((x+y)+w) (z-1) (r-1) \/ FIXPRED1 x y w (z+(-1)) (r+(-2))))
+-----------
+Original: (z=0 \/ (Dplus ((x+y)+w) (z-1) (r-1) \/ FIXPRED1 x y w (z+(-1)) (r+(-2))))
+Unfolded: (z=0 \/ ((((z-1)<>0 \/ (r-1)<>((x+y)+w)) /\ ((z-1)=0 \/ Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1))) \/ ((z+(-1))=0 \/ ((z+(-1))<>0 /\ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+Unfolded: (z=0 \/ ((((z-1)<>0 \/ (r-1)<>((x+y)+w)) /\ ((z-1)=0 \/ Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1))) \/ ((z+(-1))=0 \/ ((z+(-1))<>0 /\ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+EX_dist: (z=0 \/ ((((z-1)<>0 \/ (r-1)<>((x+y)+w)) /\ ((z-1)=0 \/ Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1))) \/ ((z+(-1))=0 \/ ((z+(-1))<>0 /\ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+tautology_elimination: (z=0 \/ (0=(z+(-1)) \/ (0=(z-1) \/ (Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+Normalized Body: (z=0 \/ (0=(z+(-1)) \/ (0=(z-1) \/ (Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+Before Fold: 
+(z=0 \/ (0=(z+(-1)) \/ (0=(z-1) \/ (Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+Find Matching: 
+(z=0 \/ (0=(z+(-1)) \/ (0=(z-1) \/ (Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+z=0
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+(0=(z+(-1)) \/ (0=(z-1) \/ (Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2)))))
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+0=(z+(-1))
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+(0=(z-1) \/ (Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+0=(z-1)
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+(Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2)))
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+unification set Model: ((x+y)+w):=((x+y)+w),z:=((z-1)-1),r:=((r-1)-1),x:=x,y:=y,w:=w,z:=((z+(-1))+(-1)),r:=((r+(-2))+(-2))
+sorted Model: z:=((z-1)-1),r:=((r-1)-1),x:=x,y:=y,w:=w,z:=((z+(-1))+(-1)),r:=((r+(-2))+(-2)),((x+y)+w):=((x+y)+w)
+unify_arith(1) No model
+e1: ((x+y)+w)
+e2: ((x+y)+w)
+No model
+Find Matching: 
+Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1)
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+Find Matching: 
+FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))
+to : (Dplus ((x+y)+w) z r \/ FIXPRED1 x y w z r)
+No model
+After Fold: 
+(z=0 \/ (0=(z+(-1)) \/ (0=(z-1) \/ (Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+GOAL': FIXPRED2 r w x y z =v (z=0 \/ (0=(z+(-1)) \/ (0=(z-1) \/ (Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+~*~*~*~*~*~*~*~*~*~*~*
+Result: 
+G x y w z r =v FIXPRED2 r w x y z
+FIXPRED2 r w x y z =v (z=0 \/ (0=(z+(-1)) \/ (0=(z-1) \/ (Dplus ((x+y)+w) ((z-1)-1) ((r-1)-1) \/ FIXPRED1 x y w ((z+(-1))+(-1)) ((r+(-2))+(-2))))))
+FIXPRED1 x y w z r =v (z=0 \/ (z<>0 /\ FIXPRED1 x y w (z+(-1)) (r+(-2))))
+Dplus x y r =v ((y<>0 \/ r<>x) /\ (y=0 \/ Dplus x (y-1) (r-1)))
+Plus x y r =μ ((y=0 /\ r=x) \/ (y<>0 /\ Plus x (y-1) (r-1)))
 
 */
