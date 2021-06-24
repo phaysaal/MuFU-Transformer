@@ -15,6 +15,10 @@ let get_preds =
     | H.Abs (_, hflz) -> aux res hflz
     | H.Op (_, hflzs) ->
        List.fold_left aux res hflzs
+    | H.Exists (_, hflz) ->
+       aux res hflz
+    | H.Forall (_, hflz) ->
+       aux res hflz
     | _ -> res
   in
   aux []

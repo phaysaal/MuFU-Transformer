@@ -20,6 +20,7 @@ let print_seperation aux goal =
 
          
 let transform (hes : H.hes) : H.hes =
+  
   let aux, goals = Seperator.seperate_goal_and_defs hes in
   let goal = List.hd goals in
   print_seperation aux goal;

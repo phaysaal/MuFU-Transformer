@@ -50,9 +50,10 @@ let rec arith_to_z3 ctx bounds = function
           let b = List.tl fs' |> List.hd in
           Arithmetic.mk_div ctx a b
        | Arith.Mod ->
-           raise (UnsupportedFormula "Mod")
+          raise (UnsupportedFormula "Mod")
      end
-  | _ ->
+  | e ->
+     P.pp_formula e |> P.dbg "Unsupported";
      raise (UnsupportedFormula "Arith _")
 ;;
 

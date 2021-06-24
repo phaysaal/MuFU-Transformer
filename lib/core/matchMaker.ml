@@ -528,11 +528,11 @@ let get_arg p p_a =
   |> snd
 ;;
 
-let rec find_matching _X (params : string list) f f' =
-  (* P.pp_formula f' |> P.dbgn "Find Matching";
+let rec find_matching fix _X (params : string list) f f' =
+  P.pp_formula f' |> P.dbgn "Find Matching";
   P.pp_formula f |> P.dbg "to ";
-   *)
-  let fn = find_matching _X params f in
+   
+  let fn = find_matching fix _X params f in
   
   let rec aux = function
       H.Or (f1, f2) ->
