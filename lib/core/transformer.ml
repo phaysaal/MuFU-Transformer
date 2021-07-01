@@ -613,11 +613,9 @@ let get_value x f =
             match c2 with
               [] ->
               (** x*c1+d1 = d2 ==> x = (d2-d1)/c1  *)
-              c1 |> AP.pp_pairss |> P.dbg "c1";
               H.Op (Arith.Div, [H.Op (Arith.Sub, [AP.list_to_exp d2; AP.list_to_exp d1]); AP.list_to_exp c1])
             | _ ->
                (** x*c1+d1 = x*c2+d2 ==> x = (d2-d1)/(c1-c2)  *)
-               c1 |> AP.pp_pairss |> P.dbg "c1";
                H.Op (Arith.Div, [H.Op (Arith.Sub, [AP.list_to_exp d2; AP.list_to_exp d1]); H.Op (Arith.Sub, [AP.list_to_exp c1; AP.list_to_exp c2])])
        in
        let r' = AP.normalize r in
