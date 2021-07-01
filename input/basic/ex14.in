@@ -1,6 +1,6 @@
 %HES
 
-G x y z r =v Dmult x (y + z) r \/ y > 0 \/ ∃x. Mult x z s.
+G x y z r =v Dmult x (y + z) r \/ y > 0 \/ ∃s. Mult x z s.
 Dmult x y r =v (y != 0 \/ r != 0) /\ (y = 0 \/ Dmult x (y-1) (r-x)).
 Mult x y r =μ (y = 0 /\ r = 0) \/ (y != 0 /\ Mult x (y-1) (r-x)).
 

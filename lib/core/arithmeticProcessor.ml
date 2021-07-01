@@ -4,9 +4,7 @@ module P = Printer
 module H = Raw_hflz
 
 exception UnexpectedExpression
-
-
-        
+    
 let pp_pair (o, f) = (P.pp_op o) ^ "(" ^ P.pp_formula f ^ ")";;
 
 let pp_pairs (o, fs) = (P.pp_op o) ^ "[" ^ P.pp_list ~sep:"" pp_pair fs ^ "]";;
@@ -25,7 +23,7 @@ let eval exp =
     | H.Op (Arith.Mult, _::H.Int 0::_) -> H.Int 0, true
     | H.Op (Arith.Mult, H.Int 0::_::_) -> H.Int 0, true
     | H.Op (Arith.Mult, x::H.Int 1::_) -> eval_atomic x |> fst, true
-    | H.Op (Arith.Mult, H.Int 1::x::_) -> eval_atomic x |> fst, true
+    | H.Op (Arith.Mult, H.Int 1::x::_) -> eval_atomic x |> fst, true    
     | H.Op (Arith.Div, x::H.Op(Arith.Div, y::z::[])::[]) -> (** a/(b/c) = (a*c)/b *)
        H.Op (Arith.Div, [H.Op (Arith.Mult, [x;z]);y]), true
     | H.Op (Arith.Div, x::H.Int 1::_) -> x, true
@@ -55,7 +53,6 @@ let eval exp =
            Arith.Add -> Arith.Sub 
          | Arith.Sub -> Arith.Add
          | Arith.Div ->
-            print_endline "DIV";
             raise UnexpectedExpression
          | _ ->
             raise UnexpectedExpression
@@ -64,13 +61,10 @@ let eval exp =
        end
     | H.Op (o, (H.Op (Arith.Add, x::y::_))::z::_) when o = Arith.Add || o = Arith.Sub ->
        H.Op (Arith.Add, x::(H.Op(o, y::z::[]))::[]) |> eval_comp |> fst, true
-      
     | H.Op (Arith.Sub, H.Op (Arith.Sub, x::y::_)::z::_) ->
        H.Op (Arith.Sub, x::H.Op (Arith.Add, y::z::[])::[]) |> eval_comp |> fst, true
-      
     | H.Op (Arith.Add, H.Op (Arith.Sub, x::y::_)::z::_) ->
        H.Op (Arith.Sub, x::H.Op(Arith.Sub, y::z::[])::[]) |> eval_comp |> fst, true
-       
     | H.Op (o, x::y::_) ->
        begin
          let x', bx = eval_comp x in
@@ -81,9 +75,7 @@ let eval exp =
          else
            begin
              let f' = H.Op (o, [x';y']) in
-             (* P.pp_formula f' |> P.dbg "f'"; *)
              let expr', b = f' |> eval_atomic in
-             (* P.pp_formula expr' |> P.dbg "expr'"; *)
              if b then
                expr' |> eval_comp
              else
@@ -96,7 +88,7 @@ let eval exp =
   res
 ;;
 
-(*
+(**
   (a+b)*(c+d) -> a*(c+d) + b*(c+d) --> a*c + a*d + b*c + b*d
   (a+b)/(c+d) -> a/(c+d) + b/(c+d) --> a/(c+d) + b/(c+d)
 *)
@@ -143,7 +135,6 @@ let inv_list xs =
 let inv_sum_list xs =
   List.map (fun (op, ys) -> (op, inv_list ys)) xs
 ;;
-
 
 let sum_list f =
   let rec mult_list = function
@@ -234,10 +225,6 @@ let var_to_str = function
 ;;
      
 let cx_d v f =
-(*  print_endline "**********";
-  f |> P.pp_formula |> P.dbg "f";
-  v |> P.id |> P.dbg "v";
- *)
   let is_in v = function
       H.Var w -> w = v
     | _ -> false
@@ -272,7 +259,6 @@ let cx_d v f =
       let r = String.compare (P.pp_list P.pp_formula pairs_f1) (P.pp_list P.pp_formula pairs_f2) in
       if r > 0 then 1 else -1
   in
-  
   
   let rec get_first op = function
       [] -> [],[]
@@ -309,8 +295,7 @@ let cx_d v f =
               ) cx in
     (c, d)
   in
-  (* f |> sum_list |> sort_sum |> partition_sum |> fst |> P.pp_list pp_pairs |> P.dbg "after sumlist"; *)
-  f |> sum_list |> sort_sum |> partition_sum |> coeff (* |> reconstruct *)
+  f |> sum_list |> sort_sum |> partition_sum |> coeff
 ;;
 
 let rec inv = function
@@ -335,7 +320,6 @@ let rec list_to_mult = function
   | (Arith.Mult, x)::((Arith.Div, _)::_ as xs) ->
      let inv_xs = inv_list xs in
      let xs_exp = list_to_mult inv_xs in
-     (* let y_xs = H.Op (Arith.Div, [y;inv xs_exp]) in *)
      H.Op (Arith.Div, [x;xs_exp])
   | (Arith.Mult, x)::ys ->
      H.Op (Arith.Mult, [x;list_to_mult ys])
@@ -385,22 +369,8 @@ let rec list_to_sum = function
   | [(Arith.Add, x)] -> list_to_mult x
   | [(Arith.Sub, x)] -> H.Op (Arith.Sub, [H.Int 0; list_to_mult x])                  
   | (Arith.Add, x)::((Arith.Sub, _)::_ as xs) ->
-     (* P.pp_list pp_pairs xs |> P.dbg " xs"; *)
-     (** +x -y [+z; +w; +v] *)
-     (** +x -y [-z; -w; -v] *)
-
-     (** +x - [+y; -z; -w; -v] *)
-     (** +x - [+y; +z; +w; +v] *)
-     
      let neg_xs = neg_list xs in
-     (* P.pp_list pp_pairs neg_xs |> P.dbg " neg xs"; *)
-     
      let xs_exp = list_to_sum neg_xs in
-     (* P.pp_formula xs_exp |> P.dbg " xs_exp"; *)
-     (** +x -y +(z+w) *)
-     (** +x -(y-(z+w)) *)
-     (*     let y_xs = H.Op (Arith.Sub, [list_to_mult y;xs_exp]) in *)
-     (** x + y + z) *)
      H.Op (Arith.Sub, [list_to_mult x;xs_exp])
   | (Arith.Add, x)::ys ->
      H.Op (Arith.Add, [list_to_mult x;list_to_sum ys])
@@ -412,26 +382,21 @@ let rec list_to_sum = function
 
 let list_to_exp xs =
   let f' = list_to_sum (simplify_sum xs) in
-  (* P.dbg "list_to_sum" (P.pp_formula f'); *)
   f' |> eval
-  
 ;;
 
-(*
+(**
   a/(a+b) --> (a/a)+(a/b) 
   1/(1+2)=1/3     1/1 + 1/2=3/2
   (a+b)/(c+d) --> a/(a+b) + b/(c+d)
  *)
-
 let list_div xs ys =
-
   let ys', xs' =
     match ys with
       (Arith.Sub, _)::_ ->
       neg_list ys, neg_list xs
     | _ -> ys, xs
   in
-  
   let op, ys'' =
     match ys' with
       (_, (Arith.Div, _)::_)::_ ->
@@ -439,15 +404,8 @@ let list_div xs ys =
     | _ ->
        Arith.Div, ys'
   in
-  
-  (* P.dbg "xs'.." (P.pp_list pp_pairs xs');
-  P.dbg "ys'.." (P.pp_list pp_pairs ys');
-  P.dbg "ys''.." (P.pp_list pp_pairs ys''); *)
   let x = list_to_exp xs' in
   let y = list_to_exp ys'' in
-  (* P.dbg "x.." (P.pp_formula x);
-  P.dbg "y.." (P.pp_formula y); *)
-  
   H.Op (op, [x;y]) |> sum_of_mult |> eval
 ;;
 
@@ -470,3 +428,46 @@ let normalize f =
   P.dbg "eval + sum_of_mult + sum_list + list_to_exp" (P.pp_formula (f |> eval |> sum_of_mult |> sum_list |> list_to_exp)); *)
   f |> eval |> sum_of_mult |> sum_list |> list_to_exp
 ;;
+
+let list_mult d xs =
+  let aux d ys =
+    if List.exists (function (Arith.Div, d') -> d=d' | _ -> false) ys then
+      List.filter (function (Arith.Div, d') -> d<>d' | _ -> true) ys
+    else
+      (Arith.Mult, d)::ys
+  in
+  List.map (fun (o, ys) -> (o, aux d ys)) xs;;
+
+let div_norm = function
+    H.Pred (op, xs) ->
+     let has_div = (function (Arith.Div, _) -> true | _ -> false) in
+     let has_divider = List.exists has_div in
+     let get_divider x = List.find has_div x |> snd in
+     let has_common_divider x =
+       match x with
+         [] -> ([], None)
+       | ((_, zs)::ys as ws) ->
+          if has_divider zs && List.for_all (fun (_, zs) -> has_divider zs) ys then
+            let divider = get_divider zs in
+            if List.for_all (fun (_, y) -> get_divider y = divider) ys then
+              (ws, Some divider)
+            else
+              (ws, None)
+          else
+            (ws, None)
+     in
+     let rec aux acc = function
+         [] -> acc
+       | w::ws ->
+           begin
+             match has_common_divider w with
+               (_, Some d) ->
+                let acc' = List.map (list_mult d) acc in
+                aux acc' ws
+             | (_, None) -> aux acc ws
+           end
+     in
+     let xs' = List.map sum_list xs in
+     let r = H.Pred (op, List.map list_to_exp (aux xs' xs')) in
+     r
+  | f -> f;;
