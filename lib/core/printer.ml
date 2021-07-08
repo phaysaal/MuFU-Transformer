@@ -4,6 +4,8 @@ module A = Arith
 module F = Formula
 module FP = Fixpoint
 
+let print_tags = ref ""
+          
 let rec pp_list f ?(sep=",") = function
     [] -> ""
   | [x] -> f x
@@ -65,4 +67,4 @@ let dbg tag str =
 
 let dbgn tag str =
   tag ^ ": " |> print_endline;
-  str        |> print_endline
+  str        |> print_endline;;

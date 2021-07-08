@@ -313,19 +313,41 @@ let rec neg = function
   | x -> x
 ;;
 
-let rec list_to_mult = function
-    [] -> H.Int 0
-  | [(Arith.Mult, x)] -> x
-  | [(Arith.Div, x)] -> H.Op (Arith.Div, [H.Int 1;x])                  
-  | (Arith.Mult, x)::((Arith.Div, _)::_ as xs) ->
-     let inv_xs = inv_list xs in
-     let xs_exp = list_to_mult inv_xs in
-     H.Op (Arith.Div, [x;xs_exp])
-  | (Arith.Mult, x)::ys ->
-     H.Op (Arith.Mult, [x;list_to_mult ys])
-  | f ->
-     P.pp_list pp_pair f |> P.dbg " Exception in list_to_mult";
-     raise UnexpectedExpression;;
+let list_to_mult xs =
+  let rec rearrange = function
+      [] -> []
+    | (Arith.Mult, _)::_ as xs -> xs
+    | ((Arith.Div, _) as x)::xs ->
+       begin
+         let zs = rearrange xs in
+         match zs with
+           [] ->
+            [x]
+         | z::zs' ->
+            z::x::zs'
+       end
+    | xs ->
+       P.pp_list pp_pair xs |> P.dbg " Exception in list_to_mult[1]";
+       raise UnexpectedExpression
+  in
+  
+  let xs' = rearrange xs in
+  let rec list_to_mult = function
+      [] -> H.Int 0
+    | [(Arith.Mult, x)] -> x
+    | [(Arith.Div, x)] -> H.Op (Arith.Div, [H.Int 1;x])                  
+    | (Arith.Mult, x)::((Arith.Div, _)::_ as xs) ->
+       let inv_xs = inv_list xs in
+       let xs_exp = list_to_mult inv_xs in
+       H.Op (Arith.Div, [x;xs_exp])
+    | (Arith.Mult, x)::ys ->
+       H.Op (Arith.Mult, [x;list_to_mult ys])
+    | f ->
+       P.pp_list pp_pair f |> P.dbg " Exception in list_to_mult[2]";
+       raise UnexpectedExpression
+  in
+  list_to_mult xs'
+;;
 
 let rec simplify_mult = function
     [] -> []
@@ -381,7 +403,7 @@ let rec list_to_sum = function
      raise UnexpectedExpression;;
 
 let list_to_exp xs =
-  let f' = list_to_sum (simplify_sum xs) in
+  let f' = try list_to_sum (simplify_sum xs) with e -> pp_pairss xs |> P.dbg "xs"; raise e in
   f' |> eval
 ;;
 

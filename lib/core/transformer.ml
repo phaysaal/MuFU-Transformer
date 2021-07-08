@@ -400,6 +400,36 @@ let unfold_formula defs_map f =
   f'
 ;;
 
+let controlled_unfold_formula pred_set defs_map f =
+  let rec unfold_formula defs_map f =
+    match f with
+    | H.Bool _ -> f
+    | H.Var _ -> f
+    | H.Or (f1, f2) ->
+       H.mk_or (unfold_formula defs_map f1) (unfold_formula defs_map f2)
+    | H.And (f1, f2) ->
+       H.mk_and (unfold_formula defs_map f1) (unfold_formula defs_map f2)
+    | H.Abs (s, f1) ->
+       H.mk_abs s (unfold_formula defs_map f1)
+    | H.App _ when List.mem f pred_set ->
+       exec_unfold defs_map f
+    | H.App _ -> f
+    | H.Int _ -> f
+    | H.Op (o, f1) ->
+       H.mk_op o (List.map (unfold_formula defs_map ) f1)
+    | H.Pred (p, f1) ->
+       H.Pred (p, List.map (unfold_formula defs_map ) f1)
+    | H.Exists (s, f1) ->
+       H.Exists (s, unfold_formula defs_map  f1)
+    | H.Forall (s, f1) ->
+       H.Forall (s, unfold_formula defs_map f1)
+  in
+  let f' = unfold_formula defs_map f in
+  P.pp_formula f' |> P.dbg "Unfolded";
+  f'
+;;
+
+
 let mk_rule n a f b =
   {
     H.var = n;
@@ -407,12 +437,6 @@ let mk_rule n a f b =
     fix = f;
     body = b
   }
-;;
-   
-let unfold defs_map goal =
-  let body' = unfold_formula defs_map goal.H.body in
-  let body'' = normalize body' in
-  body''
 ;;
 
 let fold goal body =
@@ -428,20 +452,6 @@ let add_map map def =
 
 let make_def_map defs =
   List.fold_left add_map D.empty defs 
-;;
-
-let rec transform_newgoal defs_map (orig_goal : H.hes_rule) : H.hes_rule =
-  let rec aux def_map (goal : H.hes_rule) = function
-      0 -> goal
-    | n ->
-       let body' = unfold defs_map goal in
-       let res, body'' = fold orig_goal body' in
-       let goal' = mk_rule goal.H.var goal.H.args goal.H.fix body'' in
-       if res then goal' else
-       let goal'' = aux def_map goal' (n-1) in
-       goal''
-  in
-  aux defs_map orig_goal 2
 ;;
 
 let rec subtract s = function
@@ -504,7 +514,7 @@ let make_new_goal f =
   let newpred = List.map H.mk_var fvs
                 |> U.implode_pred newpredname
   in
-  let newpreddef = {H.var=newpredname; args=fvs; fix=Fixpoint.Greatest; body=f} in
+  let newpreddef = mk_rule newpredname fvs Fixpoint.Greatest f in
   (Some newpreddef, newpred)
 ;;
 
@@ -678,6 +688,92 @@ let get_qvs_and_body f =
   (qvs, f')
 ;;
 
+let rec unfold_fold ?(time=0) transformer goal defs_map f =
+  let f' = unfold_formula defs_map f in
+  let f'' = transformer f' in
+  let is_matched, f' = fold goal f'' in
+  if is_matched then
+    begin
+      let newpred = mk_rule goal.var goal.H.args goal.fix f' in
+      Some [newpred]
+    end
+  else
+    if time > 2 then
+      None
+    else
+      begin
+        print_endline "Not folded. Next unfold continues.";
+        unfold_fold ~time:(time+1) transformer goal defs_map f''
+      end
+;;
+
+let rec get_predicate_set = function
+    H.App _ as f ->
+    [f]
+  | H.Or (f1, f2) ->
+     get_predicate_set f1 @ get_predicate_set f2
+  | H.And (f1, f2) ->
+     get_predicate_set f1 @ get_predicate_set f2
+  | _ -> []
+;;
+
+let rec get_permutation = function
+    [] -> [[]]
+  | x::xs ->
+     let xs' = get_permutation xs in
+     xs'@(List.map (fun ys -> x::ys) xs')
+;;
+
+let get_unfold_set f =
+  let pred_set = get_predicate_set f in
+  if List.length pred_set > 5 then
+    []
+  else
+    let perm_pred = get_permutation pred_set in
+    List.filter ((<>)[]) perm_pred
+;;
+
+let rec controlled_unfold_fold ?(time=0) ?(unfold_set=[]) transformer goal defs_map f =
+  if time > 20 then
+    begin
+      print_endline "Iteration Timeout";
+      None
+    end
+  else
+    begin
+      print_endline "----------";
+      P.pp_formula f |> P.dbg "The Formula";
+      let new_unfold_set = get_unfold_set f in
+      P.pp_list (fun xs -> "[" ^ P.pp_list P.pp_formula xs ^ "]") new_unfold_set |> P.dbg "Unfold Set";
+      let unfolded_pair_set = List.map (fun x -> (f,x)) new_unfold_set in
+      let unfold_set' = unfold_set @ unfolded_pair_set in
+      
+      match unfold_set' with
+        [] -> None
+      | (f, pred)::other_preds ->
+         P.pp_formula f |> P.dbg "Unfoldable Formula";
+         ("[" ^ P.pp_list P.pp_formula pred ^ "]") |> P.dbg "Unfoldable Predicates";
+         let f' = controlled_unfold_formula pred defs_map f in
+         let f'' = transformer f' in
+         let is_matched, f' = fold goal f'' in
+         if is_matched then
+           begin
+             print_endline "Successfully folded..";
+             let newpred = mk_rule goal.var goal.H.args goal.fix f' in
+             Some [newpred]
+           end
+         else
+           begin
+             print_endline "Not folded. Next unfold continues.";
+             controlled_unfold_fold ~time:(time+1) ~unfold_set:other_preds transformer goal defs_map f''
+           end
+    end
+  
+;;
+
+let uf = controlled_unfold_fold;;
+(* let uf = unfold_fold ;; *)
+
 let rec exists_elim goal defs_map f =
   P.pp_formula f |> P.dbg "f in Exists_Elim";
   match f with
@@ -697,27 +793,30 @@ and exec_exists_elim goal defs_map qvs f =
                         else
                           (f, qv::qvs')
                       ) (f,[]) qvs in
+    
     let qvs'' = List.filter (fun qv -> is_in qv f') qvs' in
-    let predname, p_a, _, fixpoint = predicate_for_exists goal in    
-    step2 qvs'' f' defs_map p_a fixpoint predname
-
-and step2 qvs f defs_map p_a fixpoint predname =
+    P.pp_formula f' |> P.dbg "f after possible qv elimination";
+    (* if List.length qvs'' > 0 then *)
+      let predname, p_a, _, _ = predicate_for_exists goal in
+      step2 qvs'' f' defs_map p_a predname
+    (* else
+      None, f' *)
+      
+and step2 qvs f defs_map p_a predname =
   let fvs = fv f in
   let p_a' = reduce_args qvs p_a in
   let p_a' = List.filter (fun (p,_) -> List.for_all (fun s -> p<>s) qvs && List.mem p fvs) p_a' in
   let ps, args = List.split p_a' in
-  let f' = f
-           |> unfold_formula defs_map
+  let body' = normalize_exists qvs f in
+  let goalpred = mk_rule predname ps Fixpoint.Least body' in
+  
+  let transformer f = f
+                      (* |> unfold_formula defs_map *)
            |> normalize_exists qvs
   in
-  let body' = normalize_exists qvs f (* List.fold_left (fun f s -> H.Exists (s,f)) f qvs *) in
-  let goalpred = {H.var=predname; args=ps; fix=fixpoint; body=body'} in
-  let _, body = fold goalpred f' in
-    begin
-      let f = U.implode_pred predname args in
-      let newpred = {H.var=predname; args=ps; fix=Fixpoint.Least; body=body} in
-      Some [newpred], f
-    end
+  let r = uf ~time:0 transformer goalpred defs_map f in
+  let f = U.implode_pred predname args in
+  (r, f)
 
 and normalize_exists qvs f =
   let f' = f
@@ -801,24 +900,6 @@ let get_fix_op defs_map f =
   pred.H.fix
 ;;  
 
-let fold_conj fix goal f =
-  let is_matched, f' = fold goal f in
-  if is_matched then
-    Some [{H.var = new_predicate_name (); args=goal.H.args; fix=fix; body=goal.H.body }], f'
-  else
-    None, f
-
-let rec unfold_fold_conj fix goal defs_map f =
-  let f' = unfold_formula defs_map f in
-  let f'' = dnf_of_formula f' in
-  let f''' = f'' |> taut_elim |> unsat_elim in
-  match fold_conj fix goal f''' with
-    None, f ->
-    unfold_fold_conj fix goal defs_map f
-  | Some _ as r, f ->
-     r, f
-;;
-
 let rec reduce fn acc = function
     [] -> acc
   | x::xs ->
@@ -850,28 +931,27 @@ let reduce_conj f =
   f'
 ;;
 
-let fold_disj goal f =
-  let is_matched, f' = fold goal f in
-  if is_matched then
-    Some [{H.var = goal.var; args=goal.H.args; fix=goal.fix; body=f' }]
-  else
-    None
+let reduce_disj f =
+  let fs = get_disjuncts f in
+  let fn x y =
+    let dx = get_conjuncts x in
+    let dy = get_conjuncts y in
+    not (subset dx dy)
+  in
+  let fs' = reduce fn [] fs in
+  let f' = mk_ors fs' in
+  P.pp_formula f' |> P.dbg "Reduced conjuncts";
+  f'
+;;
 
-let rec unfold_fold_disj ?(time=0) goal defs_map f =
-  let f' = unfold_formula defs_map f in
-  let f'' = cnf_of_formula f' (* cnf_ext f' *) in
-  let f''' = f'' |> unsat_elim |> taut_elim |> reduce_conj in
-  match fold_disj goal f''' with
-    None ->
-     if time > 2 then
-       None
-     else
-       begin
-         print_endline "Not folded. Next unfold continues.";
-         unfold_fold_disj ~time:(time+1) goal defs_map f'''
-         end
-  | Some _ as r ->
-     r
+let rec unfold_fold_conj goal defs_map f =
+  let transformer f = f |> dnf_of_formula |> unsat_elim |> taut_elim |> reduce_disj in
+  uf ~time:0 transformer goal defs_map f
+;;
+
+let rec unfold_fold_disj goal defs_map f =
+  let transformer f = f |> cnf_of_formula |> unsat_elim |> taut_elim |> reduce_conj in
+  uf ~time:0 transformer goal defs_map f
 ;;
 
 let rec unfold_fold_exists goal defs_map = function
@@ -890,6 +970,7 @@ let rec unfold_fold_exists goal defs_map = function
 ;;
 
 let rec transform_disjunction goal defs_map f =
+  P.pp_formula f |> P.dbg "f";
   let fs = get_disjuncts f in
   let (preds, fs') = List.fold_left
               (fun (acc, fs) f ->
@@ -935,22 +1016,55 @@ let rec transform_disjunction goal defs_map f =
       let f' = mk_ors [atomic; body] in
       f'
   in
-  (concat_option preds new_preds, f')
+  (concat_option new_preds preds, f')
     
 and transform_conjunction goal defs_map f =
   let fs = get_conjuncts f in
-  let atomics, nonatomics = List.partition is_non_pred fs in
+  let (preds, fs') = List.fold_left
+              (fun (acc, fs) f ->
+                let (r, f) = transform goal defs_map f in
+                concat_option acc r, fs@[f]
+              ) (None, []) fs in
+  let defs_map' = match preds with
+      None -> defs_map
+    | Some xs ->
+       List.fold_left (fun acc x -> D.add x.H.var x acc) defs_map xs
+  in
+  let atomics, nonatomics = List.partition is_non_pred fs' in
   let new_preds, body =
     match nonatomics with
       x::y::[] ->
-       let f = mk_ors [x; y] in
-       unfold_fold_conj Fixpoint.Least goal defs_map f
-    | [f] -> transform goal defs_map f 
-    | _ -> raise (StrangeSituation "Disjuncts are not exactly two")
+       let xfix = get_fix_op defs_map' x in
+       let yfix = get_fix_op defs_map' y in
+       let fix =  if xfix = Fixpoint.Greatest || yfix = Fixpoint.Greatest
+                  then Fixpoint.Greatest
+                  else Fixpoint.Least
+       in
+       let f = [x; y] |> List.sort_uniq compare_raw_hflz |> mk_ands in
+       
+       let newgoalname = new_predicate_name () in
+       let args = List.map H.mk_var goal.H.args in
+       let ps = goal.H.args in
+
+       let newgoal = {H.var=newgoalname; args=ps; fix=fix; body=f} in
+       let r = unfold_fold_conj newgoal defs_map' f in
+       
+       let f' = U.implode_pred newgoalname args in
+       (r, f')
+    | [f] -> None, f
+    | _ -> None, H.Bool false
   in
-  let atomic = mk_ands atomics in
-  let f' = mk_ands [atomic; body] in
-  (new_preds, f')
+  let atomic = mk_ors atomics in
+  let f' =
+    if List.length atomics = 0 then
+      body
+    else if List.length nonatomics = 0 then
+      atomic
+    else
+      let f' = mk_ands [atomic; body] in
+      f'
+  in
+  (concat_option new_preds preds, f')
   
 and transform_existential goal defs_map f =
   P.pp_formula f |> P.dbg " f";
