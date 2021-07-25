@@ -12,16 +12,21 @@ let parse_to_raw_hes file =
     lexbuf.lex_curr_p  <- { lexbuf.lex_curr_p  with pos_fname = file };
     lexbuf
     |> Syntax.Parser.main
-    |> fst
     end
 ;;
 
 let parse_to_typed_hes file =
   let psi, _ = Syntax.parse_file file in
   psi
-                   
+
+let print_output file txt =
+  let fout = Out_channel.create (file ^ ".out") in
+  Printf.fprintf fout "%s\n" txt;
+  Out_channel.close fout
+;;
+
 let main file =
-  let psi  = parse_to_raw_hes file in
-  let psi' = MuFU.transform psi in
-  print_string (string_of_int (List.length psi'));
+  let (psi, env)  = parse_to_raw_hes file in
+  let psi' = MuFU.transform psi env in
+  print_output file psi';
   ()
