@@ -53,7 +53,7 @@ let pp_munu = function
               
 
 let pp_rule rule =
-  rule.H.var ^ " " ^ (pp_list id ~sep:" " rule.H.args) ^ " " ^ pp_munu rule.H.fix ^ " " ^ pp_formula rule.H.body
+  rule.H.var ^ " " ^ (pp_list id ~sep:" " rule.H.args) ^ " " ^ pp_munu rule.H.fix ^ " " ^ pp_formula rule.H.body ^ "."
 ;;
 
 let pp_hes hes =

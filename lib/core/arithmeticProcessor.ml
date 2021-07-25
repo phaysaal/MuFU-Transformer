@@ -157,15 +157,18 @@ let sum_list f =
        sum_list a @ res'
     | x -> [(Arith.Add, mult_list x)]
   in
+
+  
+  
   let rec reduce_mult = function
       [] -> []
-    | ((Arith.Mult, y) as x)::xs ->
+    | ((Arith.Mult, y) as x)::xs -> (** x * (1/x) = 1 *)
        begin
          match List.partition (function (Arith.Div, y') when y=y' -> true | _ -> false) xs with
            [], _ ->  x::reduce_mult xs
          | _::zs, ws -> reduce_mult (zs@ws)
        end
-    | ((Arith.Div, y) as x)::xs ->
+    | ((Arith.Div, y) as x)::xs -> (** (1/x) * x = 1 *)
        begin
          match List.partition (function (Arith.Mult, y') when y=y' -> true | _ -> false) xs with
          [], _ ->  x::reduce_mult xs
@@ -176,13 +179,13 @@ let sum_list f =
   
   let rec reduce_sum = function
       [] -> []
-    | ((Arith.Add, y) as x)::xs ->
+    | ((Arith.Add, y) as x)::xs -> (** +x -x = 0 *)
        begin
          match List.partition (function (Arith.Sub, y') when y=y' -> true | _ -> false) xs with
            [], _ ->  (Arith.Add, reduce_mult y)::reduce_sum xs
          | _::zs, ws -> reduce_sum (zs@ws)
        end
-    | ((Arith.Sub, y) as x)::xs ->
+    | ((Arith.Sub, y) as x)::xs -> (** -x +x = 0 *)
        begin
          match List.partition (function (Arith.Add, y') when y=y' -> true | _ -> false) xs with
          [], _ ->  (Arith.Sub, reduce_mult y)::reduce_sum xs
@@ -230,23 +233,14 @@ let cx_d v f =
     | _ -> false
   in
   let mult_compare v f1 f2 =
-    
-    if var_to_str f2 = v then
-      begin
-        
-        1
-      end
-    else if var_to_str f1 = v then
-      begin
-        
-        -1
-      end
+    if var_to_str f2 = v then 1
+    else if var_to_str f1 = v then -1
     else
       let r = String.compare (H.show_raw_hflz f1) (H.show_raw_hflz f2) in
       if r > 0 then 1 else -1
   in
-  let sum_compare v f1 f2 =
-    
+  
+  let sum_compare v f1 f2 =  
     let pairs_f1 = List.map snd f1 in
     let pairs_f2 = List.map snd f2 in
     if is_in v (List.hd pairs_f1) && is_in v (List.hd pairs_f2) then
@@ -295,6 +289,12 @@ let cx_d v f =
               ) cx in
     (c, d)
   in
+  (* P.dbg "f" (P.pp_formula (f));
+  P.dbg "sum_list" (pp_pairss (f |> sum_list));
+  P.dbg "eval + sum_of_mult" (P.pp_formula (f |> eval |> sum_of_mult));
+  P.dbg "eval + sum_of_mult + sum_list" (pp_pairss (f |> eval |> sum_of_mult |> sum_list));
+  P.dbg "eval + sum_of_mult + sum_list + list_to_exp" (P.pp_formula (f |> eval |> sum_of_mult |> sum_list |> list_to_exp)); *)
+  
   f |> sum_list |> sort_sum |> partition_sum |> coeff
 ;;
 

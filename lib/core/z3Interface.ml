@@ -59,13 +59,10 @@ let rec arith_to_z3 ctx bounds = function
 
 let rec app_to_z3 ctx args bounds = function
     H.App (f1, f2) ->
-    app_to_z3 ctx (f2::args) bounds f1
+     app_to_z3 ctx (f2::args) bounds f1
   | H.Var s ->
-
      let fname = (mk_string ctx s) in
-     let args' = List.map (arith_to_z3 ctx bounds) args in
-     
-    
+     let args' = List.map (arith_to_z3 ctx bounds) args in    
      let bs = (Integer.mk_sort ctx) in
 
      let domain = List.map (fun _ -> bs) args' in
@@ -209,5 +206,133 @@ let is_unsat f =
       true
     else
       false
-  );
+   )
+;;
 
+exception TestFailException of string
+                             
+let solve_model f =
+  let cfg = [("model", "true"); ("proof", "false")] in
+  let ctx = (mk_context cfg) in
+
+  let f' = hflz_to_z3 ctx f in
+  let g = mk_goal ctx true false false in
+  Goal.add g [f'];
+
+  let ar = Tactic.apply (and_then ctx (mk_tactic ctx ("simplify")) (mk_tactic ctx "solve-eqs") []) g None in
+
+  let solver = mk_solver ctx None in
+  let f e = Solver.add solver [ e ] in
+  ignore (List.map f (get_formulas (get_subgoal ar 0)));
+  let q = check solver [] in
+  
+  if q != SATISFIABLE then
+    raise (TestFailException "UNSAT")
+  else
+    let m = get_model solver in
+    match m with
+      None -> raise (TestFailException "NO_MODEL")
+      | Some m ->
+         let ds = Model.get_const_decls m in
+         let model = List.fold_left (fun model d ->
+                         let e = FuncDecl.apply d [] in
+                         match Z3.Model.eval m e true with
+                           None -> model
+                         | Some v ->
+                            if Expr.is_numeral v then
+                              (FuncDecl.get_name d |> Symbol.get_string, Expr.to_string v |> int_of_string)::model
+                            else
+                              model
+                       ) [] ds
+         in
+         model
+;;
+
+(*         
+         List.iter (fun d ->
+             
+             
+             let Some v = Z3.Model.eval m exp true in
+             Printf.printf "%s %d %s\n" (Symbol.get_string (FuncDecl.get_name d)) (List.length ps) (Expr.to_string v)) ds;
+         Printf.printf "Solver says: %s\n" (string_of_status q) ;
+	       Printf.printf "Model: \n%s\n" (Model.to_string m)
+ *)       
+
+
+
+   (*     
+let get_model () =
+  let cfg = [("model", "true"); ("proof", "false")] in
+  let ctx = (mk_context cfg) in
+  Printf.printf "Model Checked Test\n";
+
+  let xs = [H.Pred (Formula.Eq, [H.Var "xx"; H.Var "x"]);
+            H.Pred (Formula.Eq, [(H.Op (Arith.Add, [H.Var "yy"; H.Var "zz"])); (H.Op (Arith.Sub, [H.Op (Arith.Add, [H.Var "y"; H.Var "z"]); H.Var "a"]))]);
+            H.Pred (Formula.Eq, [H.Var "yy"; (H.Op (Arith.Sub, [H.Var "y"; H.Var "b"]))]);
+            H.Pred (Formula.Eq, [H.Var "zz"; (H.Op (Arith.Sub, [H.Var "z"; H.Var "b"]))]);
+            H.Pred (Formula.Gt, [H.Op (Arith.Add, [H.Var "a"; H.Var "b"]); H.Int 0]);
+           ] in
+            
+  let xs' = List.fold_left (fun a b -> H.And (a, b)) (List.hd xs) (List.tl xs) in
+  let zs  = hflz_to_z3 ctx xs' in
+  
+  (* let xr = Expr.mk_const ctx (Symbol.mk_string ctx "x") (Integer.mk_sort ctx) in
+  let yr = Expr.mk_const ctx (Symbol.mk_string ctx "y") (Integer.mk_sort ctx) in
+  let zr = Expr.mk_const ctx (Symbol.mk_string ctx "z") (Integer.mk_sort ctx) in
+  let xxr = Expr.mk_const ctx (Symbol.mk_string ctx "x'") (Integer.mk_sort ctx) in
+  let yyr = Expr.mk_const ctx (Symbol.mk_string ctx "y'") (Integer.mk_sort ctx) in
+  let zzr = Expr.mk_const ctx (Symbol.mk_string ctx "z'") (Integer.mk_sort ctx) in
+  let ar = Expr.mk_const ctx (Symbol.mk_string ctx "a") (Integer.mk_sort ctx) in
+  let br = Expr.mk_const ctx (Symbol.mk_string ctx "b") (Integer.mk_sort ctx) in
+   *)
+  let g4 = mk_goal ctx true false false in
+(*
+  (* x'=x & y'+z'=y+z-a & y'=y-b & z'=z-b *)
+  Goal.add g4 [mk_gt ctx ar (Integer.mk_numeral_i ctx 0)];
+  Goal.add g4 [mk_gt ctx br (Integer.mk_numeral_i ctx 0)];
+  Goal.add g4 [mk_eq ctx xxr xr];
+  Goal.add g4 [mk_eq ctx (Arithmetic.mk_add ctx [yyr;zzr]) (Arithmetic.mk_sub ctx [(Arithmetic.mk_add ctx [yr;zr]); ar])];
+  Goal.add g4 [mk_eq ctx yyr (Arithmetic.mk_sub ctx [yr;br])];
+  Goal.add g4 [mk_eq ctx zzr (Arithmetic.mk_sub ctx [zr;br])]; *)
+  Goal.add g4 [zs];
+  (*
+  Goal.add g4 [mk_eq ctx yr (Arithmetic.mk_add ctx [xr; (Integer.mk_numeral_i ctx 2)])];
+  Goal.add g4 [mk_gt ctx yr (Integer.mk_numeral_i ctx 12)]; *)
+  (* 
+     Printf.printf "Goal: %s\n" (Goal.to_string g4);
+  (
+    let ar = Tactic.apply (mk_tactic ctx "simplify") g4 None in
+    Printf.printf "Tactic: %s\n" (ApplyResult.to_string ar);
+    if ((get_num_subgoals ar) == 1 && ((is_decided_sat (get_subgoal ar 0)) || (is_decided_unsat (get_subgoal ar 0)))) then
+      raise (TestFailException "")
+    else
+      Printf.printf "Test Passed\n"
+  ); *)
+  (
+    let ar = Tactic.apply (and_then ctx (mk_tactic ctx ("simplify")) (mk_tactic ctx "solve-eqs") []) g4 None in
+    (* if ((get_num_subgoals ar) == 1 && ((is_decided_sat (get_subgoal ar 0)) || (is_decided_unsat (get_subgoal ar 0)))) then
+      raise (TestFailException "")
+    else
+      Printf.printf "Test Passed\n";
+     *)
+    let solver = mk_solver ctx None in
+    let f e = Solver.add solver [ e ] in
+    ignore (List.map f (get_formulas (get_subgoal ar 0)));
+    let q = check solver [] in
+    if q != SATISFIABLE then
+      raise (TestFailException "")
+    else
+      let m = get_model solver in
+      match m with
+        None -> raise (TestFailException "")
+      | Some m ->
+         let ds = Model.get_const_decls m in
+         List.iter (fun d ->
+             let ps = FuncDecl.get_parameters d in
+             let exp = FuncDecl.apply d [] in
+             let Some v = Z3.Model.eval m exp true in
+             Printf.printf "%s %d %s\n" (Symbol.get_string (FuncDecl.get_name d)) (List.length ps) (Expr.to_string v)) ds;
+         Printf.printf "Solver says: %s\n" (string_of_status q) ;
+	       Printf.printf "Model: \n%s\n" (Model.to_string m) 
+  )
+    *)

@@ -181,7 +181,10 @@ let add_to_model x r = function
      begin
        try
          let (_, r') = List.find (fun (v,_) -> v=x) zs in
-         if A.eval (A.sum_of_mult r) = A.eval (A.sum_of_mult r') then
+         
+         if (* A.eval (A.sum_of_mult r) = A.eval (A.sum_of_mult r') *)
+           H.Pred (Formula.Eq, [r;r']) |> Z.is_tautology
+         then
            u
          else
            None
@@ -213,13 +216,16 @@ let var_text = function
 
 let rec unify_op u e1 e2 =
   let res =
-  match e1, e2 with
-    H.Var v, _ -> add_to_model e1 (A.normalize_v v e2) u
-  | H.Op (_, _), H.Op (_, _) ->
-     let e1' = list_to_binary e1 in
-     let e2' = list_to_binary e2 in
-     unify_arith u e1' e2'
-  | _ -> None
+    match e1, e2 with
+      H.Var v, _ ->
+       let e2' = A.normalize_v v e2 in
+       
+       add_to_model e1 e2' u
+    | H.Op (_, _), H.Op (_, _) ->
+       let e1' = list_to_binary e1 in
+       let e2' = list_to_binary e2 in
+       unify_arith u e1' e2'
+    | _ -> None
   in
   res
 
@@ -337,7 +343,8 @@ and unify_disj u f1 f2 =
           end
      end
   | _, _ ->
-     unify_pred u f1 f2
+     let r = unify_pred u f1 f2 in
+     r
 
 and unify_conj u f1 f2 =
   match f1, f2 with
@@ -355,7 +362,8 @@ and unify_conj u f1 f2 =
           end
      end
   | _, _ ->
-     unify_disj u f1 f2
+     let r = unify_disj u f1 f2 in
+     r
 
 
 and unify' u f1 f2 : (H.raw_hflz * H.raw_hflz) list option =
@@ -386,6 +394,7 @@ let unify f1 f2 : (H.raw_hflz * H.raw_hflz) list option =
                            -1
                    ) sets
      in
+     
      let u' = List.fold_left (fun sets (x,y) -> unify_op sets x y) (Some []) sets' in
      u'
 ;;
@@ -408,8 +417,9 @@ let get_arg p p_a =
 
 let rec find_matching fix _X (params : string list) f f' =
   (* P.pp_formula f' |> P.dbgn "Find Matching";
-  P.pp_formula f |> P.dbg "to "; *)
-   
+  P.pp_formula f |> P.dbg "to ";
+   *)
+  
   let fn = find_matching fix _X params f in
   
   let rec aux = function
@@ -428,7 +438,7 @@ let rec find_matching fix _X (params : string list) f f' =
   in
   
   let m = unify f f' in
-  
+  print_model m;
   match m with
     Some p_a ->
      let args = List.map (fun p -> get_arg p p_a) params in
