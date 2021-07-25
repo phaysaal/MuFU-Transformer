@@ -803,89 +803,115 @@ let rec controlled_unfold_fold ?(time=0) ?(unfold_set=[]) transformer goal defs_
 
       let pred_calls = get_predicates f in
       P.pp_list P.pp_formula pred_calls |> P.dbg "Preds";
-      let pred_args_body = List.map (exec_unfold_ext defs_map) pred_calls in
-      let pred_args_pred'args' = List.map (fun (pred_name, args, body) ->
-                                let pred_calls = get_predicates body in
-                                let pred_args' = List.map explode_pred pred_calls in
-                                (pred_name, args, pred_args')
-                              ) pred_args_body in
-      if List.for_all (fun (pred_name,_,pred'_args') ->
-             List.length pred'_args' = 1
-             && fst (List.hd pred'_args') = pred_name
-           ) pred_args_pred'args' then
-        let all_ms_constraints = List.mapi (fun i (pred_name, args, pred_args') ->
-                             let args' = snd (List.hd pred_args') in
-                             let args_args' = List.combine args args' in
-                             let deltas = List.map (fun (arg, arg') -> AP.normalize (H.Op (Arith.Sub, [arg';arg]))) args_args' in
-                             let args_args'_deltas = List.combine args_args' deltas in
-                             let multiplier = (pred_name ^ (string_of_int i)) in
-
-                             let multiplied_deltas = List.fold_left (fun acc ((arg, arg'), delta) ->
-                                                         
-                                                         match delta with
-                                                           H.Int _ ->
-                                                           (* P.pp_formula delta |> P.dbg "delta"; *)
-                                                            let t = H.Op (Arith.Mult, [H.Var multiplier; delta]) |> AP.normalize in
-                                                            (* P.pp_formula t |> P.dbg "t"; *)
-                                                            acc @ [(arg, arg', t)]
-                                                         | _ -> acc
-                                                       ) [] args_args'_deltas in
-                             let constraints = List.map (fun (a, _, d) ->
+      if List.length pred_calls < 2 then
+        begin
+          print_endline "Old School Method";
+          unfold_fold transformer goal defs_map f
+        end
+      else
+        begin
+          let pred_args_body = List.map (exec_unfold_ext defs_map) pred_calls in
+          let pred_args_pred'args' = List.map (fun (pred_name, args, body) ->
+                                         let pred_calls = get_predicates body in
+                                         let pred_args' = List.map explode_pred pred_calls in
+                                         (pred_name, args, pred_args')
+                                       ) pred_args_body in
+          if List.for_all (fun (pred_name,_,pred'_args') ->
+                 List.length pred'_args' = 1
+                 && fst (List.hd pred'_args') = pred_name
+               ) pred_args_pred'args' then
+            let all_ms_constraints = List.mapi (fun i (pred_name, args, pred_args') ->
+                                         let args' = snd (List.hd pred_args') in
+                                         let args_args' = List.combine args args' in
+                                         let deltas = List.map (fun (arg, arg') -> AP.normalize (H.Op (Arith.Sub, [arg';arg]))) args_args' in
+                                         let args_args'_deltas = List.combine args_args' deltas in
+                                         let multiplier = (pred_name ^ (string_of_int i)) in
+                                         
+                                         let multiplied_deltas = List.fold_left (fun acc ((arg, arg'), delta) ->
+                                                                     
+                                                                     match delta with
+                                                                       H.Int _ ->
+                                                                        (* P.pp_formula delta |> P.dbg "delta"; *)
+                                                                        let t = H.Op (Arith.Mult, [H.Var multiplier; delta]) |> AP.normalize in
+                                                                        (* P.pp_formula t |> P.dbg "t"; *)
+                                                                        acc @ [(arg, arg', t)]
+                                                                     | _ -> acc
+                                                                   ) [] args_args'_deltas in
+                                         let constraints = List.map (fun (a, _, d) ->
                                                                let aa = auto_rename a in
                                                                let a'_md = (H.Op (Arith.Add, [a;d])) |> AP.normalize in
                                                                H.Pred (Formula.Eq, [aa;a'_md])
-                                                 ) multiplied_deltas in
-                             ((pred_name, multiplier), constraints)
-                                ) pred_args_pred'args' in
-        let pred_ms, all_constraints = List.split all_ms_constraints in
-        let ms = List.map snd pred_ms in
-        let gen_cons = H.Pred (Formula.Gt, [H.Op (Arith.Add, List.map H.mk_var ms); H.Int 0]) in
-        match List.concat all_constraints with
-          [] -> unfold_fold transformer goal defs_map f
-        | all ->
-           let c = List.fold_left H.mk_and gen_cons all in
-           let model = Z.solve_model c in
-           
-           List.iter (fun constraints ->
-               P.pp_list P.pp_formula constraints |> P.dbg ""
-             ) all_constraints;
-
-           let pred_times = List.map (fun (pred_name, m) ->
-                                let (_, v) = List.find (fun (id, _) -> id = m) model in
-                                (pred_name, v)
-                              ) pred_ms in
-
-           let rec unfold_times f = function
-               [] -> f
-             | (_, 0)::xs ->
-                unfold_times f xs
-             | (pred_name, n)::xs ->
-                let f' = unfold_one_pred pred_name defs_map f |> transformer in
-                unfold_times f' ((pred_name, (n-1))::xs)
-           in
-           
-           let f' = unfold_times f pred_times in
-           P.pp_formula f' |> P.dbg "The Unfolded";
-           let f'' = transformer f' in
-           P.pp_formula f'' |> P.dbg "The Transformed";
-           P.pp_rule goal |> P.dbg "The Goal";
-           let is_matched, f' = fold goal f'' in
-           
-           if is_matched then
-             begin
-               print_endline "Successfully folded..";
-               let newpred = mk_rule goal.var goal.H.args goal.fix f' in
-               P.pp_rule newpred |> P.dbg "RULE()";
-               Some [newpred]
-             end
-           else
-             begin
-               print_endline "Not folded. Next unfold continues.";
-               (* unfold_fold transformer goal defs_map f *)
-               raise (Z.TestFailException "")
-             end
-      else
-        unfold_fold transformer goal defs_map f
+                                                             ) multiplied_deltas in
+                                         ((pred_name, multiplier), constraints)
+                                       ) pred_args_pred'args' in
+            let pred_ms, all_constraints = List.split all_ms_constraints in
+            let ms = List.map snd pred_ms in
+            let gen_cons = H.Pred (Formula.Gt, [H.Op (Arith.Add, List.map H.mk_var ms); H.Int 0]) in
+            match List.concat all_constraints with
+              [] -> unfold_fold transformer goal defs_map f
+            | all ->
+               try
+                 let c = List.fold_left H.mk_and gen_cons all in
+               let model = Z.solve_model c in
+               
+               List.iter (fun constraints ->
+                   P.pp_list P.pp_formula constraints |> P.dbg ""
+                 ) all_constraints;
+               
+               List.iter (fun (id, v) -> print_endline (id ^ ": " ^ (string_of_int v))) model;
+               let pred_times = List.map (fun (pred_name, m) ->
+                                    let (_, v) =
+                                      try
+                                        List.find (fun (id, _) -> id = m) model
+                                      with
+                                        Not_found ->
+                                        print_endline (m ^ " is not found in the model");
+                                        raise Not_found
+                                    in
+                                    (pred_name, v)
+                                  ) pred_ms in
+               
+               let rec unfold_times f = function
+                   [] -> f
+                 | (_, 0)::xs ->
+                    unfold_times f xs
+                 | (pred_name, n)::xs ->
+                    print_endline ("Unfolding " ^ pred_name);
+                    let f' = unfold_one_pred pred_name defs_map f |> transformer in
+                    unfold_times f' ((pred_name, (n-1))::xs)
+               in
+               
+               let f' = unfold_times f pred_times in
+               P.pp_formula f' |> P.dbg "The Unfolded";
+               let f'' = transformer f' in
+               P.pp_formula f'' |> P.dbg "The Transformed";
+               P.pp_rule goal |> P.dbg "The Goal";
+               let is_matched, f' = fold goal f'' in
+               
+               if is_matched then
+                 begin
+                   print_endline "Successfully folded..";
+                   let newpred = mk_rule goal.var goal.H.args goal.fix f' in
+                   P.pp_rule newpred |> P.dbg "RULE()";
+                   Some [newpred]
+                 end
+               else
+                 begin
+                   print_endline "Not folded. Next unfold continues.";
+                   unfold_fold transformer goal defs_map f
+                               (* raise (Z.TestFailException "") *)
+                 end
+               with
+                 Not_found ->
+                 print_endline "Old School Method";
+                 unfold_fold transformer goal defs_map f
+                 
+          else
+            begin
+              print_endline "Old School Method";
+              unfold_fold transformer goal defs_map f
+            end
+        end
       (*
       let new_unfold_set = get_unfold_set f in
       P.pp_list (fun xs -> "[" ^ P.pp_list P.pp_formula xs ^ "]") new_unfold_set |> P.dbg "Unfold Set";
@@ -1300,3 +1326,16 @@ let transform_hes (defs : H.hes) goal env =
   | None -> goal_pred ::defs
 ;;
 
+(*
+
+(r<>0 \/ ((y+z)<>0 \/ z>0)) /\ 
+(r<>0 \/ ((y+z)<>0 \/ y>0)) /\ 
+(r<>0 \/ ((y+z)<>0 \/ Mult2 x (y-1) (z-1) (r-(2*x)))) /\ 
+((y+z)=0 \/ ((y+(z+(-1)))<>0 \/ ((r-x)<>0 \/ z>0))) /\ 
+((y+z)=0 \/ ((y+(z+(-1)))<>0 \/ ((r-x)<>0 \/ y>0))) /\ 
+((y+z)=0 \/ ((y+(z+(-1)))<>0 \/ ((r-x)<>0 \/ Mult2 x (y-1) (z-1) (r-(2*x))))) /\ 
+((y+z)=0 \/ ((y+(z+(-1)))=0 \/ (z>0 \/ DMult x (((y+z)-1)-1) ((r-x)-x)))) /\ 
+((y+z)=0 \/ ((y+(z+(-1)))=0 \/ (y>0 \/ DMult x (((y+z)-1)-1) ((r-x)-x)))) /\ 
+((y+z)=0 \/ ((y+(z+(-1)))=0 \/ FIXPRED1 x (y+(-1)) (z+(-1)) (r+(0-(2*x)))))
+
+*)

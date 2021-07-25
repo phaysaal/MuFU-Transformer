@@ -1,0 +1,35 @@
+%HES
+
+G x y z r =v DMult x (y+z) r \/ Mult2 x y z r.
+Mult x y r =μ (y=0 /\ r=0) \/ (y>0 /\ Mult x (y-1) (r-x)).
+Mult2 x y z r =μ (y>0 /\ z>0 /\ Mult2 x (y-1) (z-1) (r-2*x)).
+DMult x y r =v (y<>0 \/ r<>0) /\ (y=0 \/ DMult x (y-1) (r-x)).
+
+/*
+
+Unfoldable Formula: (DMult x (y+z) r \/ Mult2 x y z r)
+Unfoldable Predicates: [DMult x (y+z) r,Mult2 x y z r]
+Unfolded: ((((y+z)<>0 \/ r<>0) /\ ((y+z)=0 \/ DMult x ((y+z)-1) (r-x))) \/ (y>0 /\ (z>0 /\ Mult2 x (y-1) (z-1) (r-(2*x)))))
+
+unsat elimination:
+(((y+z)=0 \/ (DMult x ((y+z)-1) (r-x) \/ Mult2 x (y-1) (z-1) (r-(2*x)))) /\
+(((y+z)=0 \/ (y>0 \/ DMult x ((y+z)-1) (r-x))) /\
+(((y+z)=0 \/ (z>0 \/ DMult x ((y+z)-1) (r-x))) /\
+((r<>0 \/ ((y+z)<>0 \/ Mult2 x (y-1) (z-1) (r-(2*x)))) /\
+((r<>0 \/ ((y+z)<>0 \/ y>0)) /\ (r<>0 \/ ((y+z)<>0 \/ z>0)))))))
+
+tautology elimination:
+(((y+z)=0 \/ (DMult x ((y+z)-1) (r-x) \/ Mult2 x (y-1) (z-1) (r-(2*x)))) /\ (((y+z)=0 \/ (y>0 \/ DMult x ((y+z)-1) (r-x))) /\ (((y+z)=0 \/ (z>0 \/ DMult x ((y+z)-1) (r-x))) /\ ((r<>0 \/ ((y+z)<>0 \/ Mult2 x (y-1) (z-1) (r-(2*x)))) /\ ((r<>0 \/ ((y+z)<>0 \/ y>0)) /\ (r<>0 \/ ((y+z)<>0 \/ z>0)))))))
+Reduced conjuncts:
+((r<>0 \/ ((y+z)<>0 \/ z>0)) /\ ((r<>0 \/ ((y+z)<>0 \/ y>0)) /\ ((r<>0 \/ ((y+z)<>0 \/ Mult2 x (y-1) (z-1) (r-(2*x)))) /\ (((y+z)=0 \/ (z>0 \/ DMult x ((y+z)-1) (r-x))) /\ (((y+z)=0 \/ (y>0 \/ DMult x ((y+z)-1) (r-x))) /\ ((y+z)=0 \/ (DMult x ((y+z)-1) (r-x) \/ Mult2 x (y-1) (z-1) (r-(2*x)))))))))
+
+Before Fold: 
+((r<>0 \/ ((y+z)<>0 \/ z>0)) /\ ((r<>0 \/ ((y+z)<>0 \/ y>0)) /\ ((r<>0 \/ ((y+z)<>0 \/ Mult2 x (y-1) (z-1) (r-(2*x)))) /\ (((y+z)=0 \/ (z>0 \/ DMult x ((y+z)-1) (r-x))) /\ (((y+z)=0 \/ (y>0 \/ DMult x ((y+z)-1) (r-x))) /\ ((y+z)=0 \/ (DMult x ((y+z)-1) (r-x) \/ Mult2 x (y-1) (z-1) (r-(2*x)))))))))
+After Fold: 
+((r<>0 \/ ((y+z)<>0 \/ z>0)) /\ ((r<>0 \/ ((y+z)<>0 \/ y>0)) /\ ((r<>0 \/ ((y+z)<>0 \/ Mult2 x (y-1) (z-1) (r-(2*x)))) /\ (((y+z)=0 \/ (z>0 \/ DMult x ((y+z)-1) (r-x))) /\ (((y+z)=0 \/ (y>0 \/ DMult x ((y+z)-1) (r-x))) /\ ((y+z)=0 \/ (DMult x ((y+z)-1) (r-x) \/ Mult2 x (y-1) (z-1) (r-(2*x)))))))))
+Not folded. Next unfold continues.
+
+
+
+
+*/

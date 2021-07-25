@@ -438,7 +438,7 @@ let rec find_matching fix _X (params : string list) f f' =
   in
   
   let m = unify f f' in
-  print_model m;
+  
   match m with
     Some p_a ->
      let args = List.map (fun p -> get_arg p p_a) params in
