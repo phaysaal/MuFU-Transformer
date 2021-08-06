@@ -1,0 +1,6 @@
+%HES
+
+G x =v NotEven x \/ NotOdd x.
+NotEven x =v x = 0 /\ NotOdd (x-1).
+NotOdd x  =v NotEven (x-1).
+

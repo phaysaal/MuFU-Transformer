@@ -447,3 +447,15 @@ let rec find_matching fix _X (params : string list) f f' =
      aux f'
 ;;
     
+let reduce_eq exc fs =
+  let rec reduce_eq exc acc = function
+      [] -> acc
+    | H.Pred (Formula.Eq, H.Var a'::a::[])::xs when not (List.mem a' exc) ->
+       let acc' = List.map (subs_var a' a) acc in
+       let xs' = List.map (subs_var a' a) xs in
+       reduce_eq exc acc' xs'
+    | x::xs ->
+       reduce_eq exc (x::acc) xs
+  in
+  reduce_eq exc [] fs
+;;

@@ -1,0 +1,26 @@
+%HES
+
+Comm x y s t =μ DMult x y s \/ DMult y x t \/ s=t.
+DMult x y r =v (y != 0 \/ r != 0) /\ (y = 0 \/ DMult x (y-1) (r-x)).
+
+/*
+
+Mult x (y-1) (r-x) <= Mult (y-1) x (r-x)
+
+Comm x y s t =μ DMult x y s \/ DMult y x t \/ s=t.
+Comm x y s t =μ DMult x (y-1) (s-x) \/ DMult (y-1) x (t-x).  ??
+
+                DMult x (y-1) (s-x) \/ DMult y (x-1) (t-y).
+								DMult x (y-1) (s-x) \/ DMult (x-1) y (t-y).
+
+
+
+    (not B \/ C) /\ (A \/ B)
+------------------------------------
+(not B /\ A) \/ (C /\ A) \/ (C /\ B)
+
+
+=> A \/ C
+
+
+*/

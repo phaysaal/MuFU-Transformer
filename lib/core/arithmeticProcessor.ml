@@ -158,8 +158,6 @@ let sum_list f =
     | x -> [(Arith.Add, mult_list x)]
   in
 
-  
-  
   let rec reduce_mult = function
       [] -> []
     | ((Arith.Mult, y) as x)::xs -> (** x * (1/x) = 1 *)

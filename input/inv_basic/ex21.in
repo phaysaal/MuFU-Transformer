@@ -1,0 +1,28 @@
+%HES
+
+G x y r =v (NegMult x y r) \/ (MultS y x r).
+NegMult x y r =v (y != 0 \/ r != 0) /\ ((y = 0) \/ (NegMult x (y - 1) (r - x))).
+MultS y x r =μ ((y = 0) /\ (r = 0)) \/ ((y != 0) /\ (MultS (y - 1) x (r - x))).
+
+/*
+(declare-fun G (Int Int Int) Bool)
+(declare-fun NegMult (Int Int Int) Bool)
+(declare-fun MultS (Int Int Int) Bool)
+(declare-fun mu () Bool)
+(declare-fun nu () Bool)
+
+(assert (forall ((x Int) (y Int) (r Int)) (G x y r)))
+
+(assert (forall ((x Int) (y Int) (r Int))
+  (= (G x y r) (or (NegMult x y r) (MultS y x r)))))
+
+(assert (and nu (forall ((x Int) (y Int) (r Int))
+  (= (NegMult x y r) (and
+    (or (not (= y 0)) (not (= r 0)))
+    (or (= y 0) (NegMult x (- y 1) (- r x))))))))
+
+(assert (and mu (forall ((y Int) (x Int) (r Int))
+  (= (MultS y x r) (or
+    (and (= y 0) (= r 0))
+    (and (not (= y 0)) (MultS (- y 1) x (- r x))))))))
+*/

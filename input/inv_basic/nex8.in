@@ -1,0 +1,11 @@
+%HES
+
+G x y w z r =v x=0 /\ (Dplus (x + y + w) z r \/ (∃s1. ∃s2. ∃s3. Plus x z s1 /\ Plus y z s2 /\ Plus w z s3 /\ r + z + z = s1 + s2 + s3)).
+Dplus x y r =v (y != 0 \/ r != x) /\ (y = 0 \/ Dplus x (y - 1) (r - 1)).
+Plus x y r =μ (y = 0 /\ r = x) \/ (y != 0 /\ Plus x (y - 1) (r - 1)).
+
+/*
+G  =v ∀ r.∀ z.∀ w.∀ y.∀ x.(x=0 /\ FIXPRED2 x y w z r).
+FIXPRED2 x y w z r =v (z=0 \/ FIXPRED2 x y w (z+(-1)) (r+(-1))).
+FIXPRED1 x y w z r =μ ((z=0 /\ (r+(z+(z-(y+w))))=x) \/ (z<>0 /\ FIXPRED1 x y w (z+(-1)) (r+(-1)))).
+*/

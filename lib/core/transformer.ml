@@ -15,6 +15,7 @@ exception StrangeSituation of string
 exception UnsupportedNow of string
 
 exception Err
+exception NotFoldable
 
 let var_seq = ["x"; "y"; "z"; "w"; "r"; "p"; "q"; "m"; "n"];;
 
@@ -367,13 +368,13 @@ let exec_unfold_ext defs_map f =
   
     let body' = subs_vars params vtemps pred.H.body in
     let body'' = subs_vars temps args body' in
-    (pred_name, args, body'')
+    (pred_name, args, body'', f)
   in
   f res
 ;;
 
 let exec_unfold defs_map f =
-  let (_, _, body) = exec_unfold_ext defs_map f in
+  let (_, _, body, _) = exec_unfold_ext defs_map f in
   body
 ;;
 
@@ -476,7 +477,8 @@ let mk_rule n a f b =
 let fold goal body =
   P.pp_formula body |> P.dbgn "Before Fold";
   let res, body' = U.find_matching goal.H.fix goal.H.var goal.H.args goal.H.body body in
-  P.pp_formula body' |> P.dbgn "After Fold";
+  
+  if res then P.pp_formula body' |> P.dbgn "After Fold";
   res, body'
 ;;
 
@@ -758,13 +760,53 @@ let rec get_permutation = function
      xs'@(List.map (fun ys -> x::ys) xs')
 ;;
 
-let get_unfold_set f =
-  let pred_set = get_predicate_set f |> List.sort_uniq H.compare_raw_hflz in
-  if List.length pred_set > 5 then
-    []
-  else
-    let perm_pred = get_permutation pred_set in
-    List.filter ((<>)[]) perm_pred
+(*
+  [(0,[A]); (1,[B;C])]      [(0,[C]); (1,[D;E])]
+
+  [
+    [(0,[A]); (1,[D;E])]
+    ...
+  ]
+
+  (int * string list) list list
+*)
+
+let get_unfold_set all_deps f =
+
+  let rec multiply all_deps = function
+      [] -> [[]]
+    | x::xs ->
+       let vss : (int * string list) list = D.find x all_deps in
+       let rs : (int * string list) list list = multiply all_deps xs in
+       let rs' = List.map (fun (r:(int * string list) list) -> vss@r) rs in
+       rs' 
+  in
+  let get_probable_set all_deps conj =
+    let pred_set = get_predicate_set conj |> List.sort_uniq H.compare_raw_hflz |> List.map explode_pred |> List.map fst in
+   
+    let multiplied_set : (int * string list) list list = multiply all_deps pred_set in
+    
+    List.filter (fun xs ->
+        let ps = List.map snd xs |> List.concat in
+        List.for_all (fun p -> List.mem p ps) pred_set
+      ) multiplied_set 
+  in
+  
+  let conjuncts = get_conjuncts f in
+  let conjuncts_set = List.map (fun c -> (c, get_probable_set all_deps c)) conjuncts in
+
+  
+  let conjuncts_set' = List.filter (fun (_, xs) -> List.length xs > 0) conjuncts_set |> List.map fst in
+
+  List.map (fun conjunct ->
+      let pred_set = get_predicate_set conjunct |> List.sort_uniq H.compare_raw_hflz in
+      if List.length pred_set > 10 then
+        [[]]
+      else
+        let perm_pred = get_permutation pred_set in
+        List.filter ((<>)[]) perm_pred
+    ) conjuncts_set' |> List.concat
+  
 ;;
 
 let rec get_predicates = function
@@ -775,6 +817,7 @@ let rec get_predicates = function
      get_predicates f1 @ get_predicates f2
   | _ -> []
 ;;
+
 
 let rec auto_rename = function
     H.Var s -> H.Var (s^s)
@@ -790,130 +833,8 @@ let rec auto_rename = function
   | H.Bool _ as f -> f
 ;;
 
-let rec controlled_unfold_fold ?(time=0) ?(unfold_set=[]) transformer goal defs_map f =
-  if time > 20 then
-    begin
-      print_endline "Iteration Timeout";
-      None
-    end
-  else
-    begin
-      print_endline "----------";
-      P.pp_formula f |> P.dbg "The Formula";
-
-      let pred_calls = get_predicates f in
-      P.pp_list P.pp_formula pred_calls |> P.dbg "Preds";
-      if List.length pred_calls < 2 then
-        begin
-          print_endline "Old School Method";
-          unfold_fold transformer goal defs_map f
-        end
-      else
-        begin
-          let pred_args_body = List.map (exec_unfold_ext defs_map) pred_calls in
-          let pred_args_pred'args' = List.map (fun (pred_name, args, body) ->
-                                         let pred_calls = get_predicates body in
-                                         let pred_args' = List.map explode_pred pred_calls in
-                                         (pred_name, args, pred_args')
-                                       ) pred_args_body in
-          if List.for_all (fun (pred_name,_,pred'_args') ->
-                 List.length pred'_args' = 1
-                 && fst (List.hd pred'_args') = pred_name
-               ) pred_args_pred'args' then
-            let all_ms_constraints = List.mapi (fun i (pred_name, args, pred_args') ->
-                                         let args' = snd (List.hd pred_args') in
-                                         let args_args' = List.combine args args' in
-                                         let deltas = List.map (fun (arg, arg') -> AP.normalize (H.Op (Arith.Sub, [arg';arg]))) args_args' in
-                                         let args_args'_deltas = List.combine args_args' deltas in
-                                         let multiplier = (pred_name ^ (string_of_int i)) in
-                                         
-                                         let multiplied_deltas = List.fold_left (fun acc ((arg, arg'), delta) ->
-                                                                     
-                                                                     match delta with
-                                                                       H.Int _ ->
-                                                                        (* P.pp_formula delta |> P.dbg "delta"; *)
-                                                                        let t = H.Op (Arith.Mult, [H.Var multiplier; delta]) |> AP.normalize in
-                                                                        (* P.pp_formula t |> P.dbg "t"; *)
-                                                                        acc @ [(arg, arg', t)]
-                                                                     | _ -> acc
-                                                                   ) [] args_args'_deltas in
-                                         let constraints = List.map (fun (a, _, d) ->
-                                                               let aa = auto_rename a in
-                                                               let a'_md = (H.Op (Arith.Add, [a;d])) |> AP.normalize in
-                                                               H.Pred (Formula.Eq, [aa;a'_md])
-                                                             ) multiplied_deltas in
-                                         ((pred_name, multiplier), constraints)
-                                       ) pred_args_pred'args' in
-            let pred_ms, all_constraints = List.split all_ms_constraints in
-            let ms = List.map snd pred_ms in
-            let gen_cons = H.Pred (Formula.Gt, [H.Op (Arith.Add, List.map H.mk_var ms); H.Int 0]) in
-            match List.concat all_constraints with
-              [] -> unfold_fold transformer goal defs_map f
-            | all ->
-               try
-                 let c = List.fold_left H.mk_and gen_cons all in
-               let model = Z.solve_model c in
-               
-               List.iter (fun constraints ->
-                   P.pp_list P.pp_formula constraints |> P.dbg ""
-                 ) all_constraints;
-               
-               List.iter (fun (id, v) -> print_endline (id ^ ": " ^ (string_of_int v))) model;
-               let pred_times = List.map (fun (pred_name, m) ->
-                                    let (_, v) =
-                                      try
-                                        List.find (fun (id, _) -> id = m) model
-                                      with
-                                        Not_found ->
-                                        print_endline (m ^ " is not found in the model");
-                                        raise Not_found
-                                    in
-                                    (pred_name, v)
-                                  ) pred_ms in
-               
-               let rec unfold_times f = function
-                   [] -> f
-                 | (_, 0)::xs ->
-                    unfold_times f xs
-                 | (pred_name, n)::xs ->
-                    print_endline ("Unfolding " ^ pred_name);
-                    let f' = unfold_one_pred pred_name defs_map f |> transformer in
-                    unfold_times f' ((pred_name, (n-1))::xs)
-               in
-               
-               let f' = unfold_times f pred_times in
-               P.pp_formula f' |> P.dbg "The Unfolded";
-               let f'' = transformer f' in
-               P.pp_formula f'' |> P.dbg "The Transformed";
-               P.pp_rule goal |> P.dbg "The Goal";
-               let is_matched, f' = fold goal f'' in
-               
-               if is_matched then
-                 begin
-                   print_endline "Successfully folded..";
-                   let newpred = mk_rule goal.var goal.H.args goal.fix f' in
-                   P.pp_rule newpred |> P.dbg "RULE()";
-                   Some [newpred]
-                 end
-               else
-                 begin
-                   print_endline "Not folded. Next unfold continues.";
-                   unfold_fold transformer goal defs_map f
-                               (* raise (Z.TestFailException "") *)
-                 end
-               with
-                 Not_found ->
-                 print_endline "Old School Method";
-                 unfold_fold transformer goal defs_map f
-                 
-          else
-            begin
-              print_endline "Old School Method";
-              unfold_fold transformer goal defs_map f
-            end
-        end
-      (*
-      let new_unfold_set = get_unfold_set f in
+let rec bf_unfold_fold ?(time=0) ?(unfold_set=[]) all_deps transformer goal defs_map f =
+      let new_unfold_set = get_unfold_set all_deps f in
       P.pp_list (fun xs -> "[" ^ P.pp_list P.pp_formula xs ^ "]") new_unfold_set |> P.dbg "Unfold Set";
       let unfolded_pair_set = List.map (fun x -> (f,x)) new_unfold_set in
       let unfold_set' = unfold_set @ unfolded_pair_set in
@@ -935,12 +856,202 @@ let rec controlled_unfold_fold ?(time=0) ?(unfold_set=[]) transformer goal defs_
          else
            begin
              print_endline "Not folded. Next unfold continues.";
-             controlled_unfold_fold ~time:(time+1) ~unfold_set:other_preds transformer goal defs_map f''
+             bf_unfold_fold ~time:(time+1) ~unfold_set:other_preds all_deps transformer goal defs_map f''
            end
-       *)
+;;
 
-    end
+let pp_deps (deps : (int * string list) list) =
+  let pp_dep (i, ps) = "(" ^ (string_of_int i) ^ ", [" ^ P.pp_list P.id ps ^ "])" in
+  P.pp_list pp_dep deps
+;;
+
+let rec build_all_deps i path (deps:(string * H.raw_hflz list) list D.t) (v:string) : (int * string list) list =
+  let pred_names_args = D.find v deps in
+  let pred_names = List.map fst pred_names_args in
+  let pred_names' = List.filter (fun p -> not (List.mem p path)) pred_names in
+  if List.length pred_names' > 0 then
+    let fn v = build_all_deps (i+1) (path@[v]) deps v in
+    let other_dep = List.map (fun p -> fn p) pred_names' |> List.concat in
+    (i, pred_names')::other_dep
+  else
+    []
+;;
+
+let guessed_unfold_fold transformer goal defs_map f =
+  let deps : (string * H.raw_hflz list) list D.t =
+    D.fold (fun v f acc ->
+        let preds = get_predicate_set f.H.body |> List.sort_uniq H.compare_raw_hflz in
+        let pred_names_args = List.map (fun p -> explode_pred p) preds in
+        D.add v pred_names_args acc) defs_map D.empty
+  in
+  let keys : string list = D.bindings deps |> List.map fst in
+  let all_deps : (int * string list) list D.t =
+    List.fold_left (fun all_deps key ->
+        let all_dep = build_all_deps 1 [] deps key in
+        D.add key ((0,[key])::all_dep) all_deps 
+      ) D.empty keys
+  in
+  D.fold (fun k (deps: (int * string list) list) (acc : string) ->
+      acc ^ ";\n" ^ k ^ "," ^ (pp_deps deps))
+    all_deps "" |> P.dbg "Deps";
   
+  bf_unfold_fold all_deps transformer goal defs_map f
+;;
+
+let solve_conflict f defs_map pred_args_body =
+  List.map (fun (a,b,c,_) -> (a,b,c)) pred_args_body, defs_map, f
+
+(* let rec resolve i f acc defs_map = function
+      [] -> [], defs_map, f
+    | (pred_name, args, body, call)::xs ->
+       let res, defs_map', f' = resolve (i+1) f (pred_name::acc) defs_map xs in
+       if List.mem pred_name acc then
+         let new_name = pred_name ^ "_D_" ^ (string_of_int i) in
+         let _, args = explode_pred call in
+         let new_call = U.implode_pred new_name args in
+         let f'' = U.subs_f call new_call f' in
+         let body' = U.subs_var pred_name (H.Var new_name) body in
+         let pred = D.find pred_name defs_map in
+         let new_rule = mk_rule new_name pred.H.args pred.H.fix body' in
+         (new_name, args, body')::res, D.add new_name new_rule defs_map', f''
+       else
+         (pred_name, args, body)::res, defs_map', f'
+  in
+  resolve 0 f [] defs_map pred_args_body *)
+;;
+  
+
+let controlled_unfold_fold transformer goal defs_map' f' =
+  
+  let are_all_pred_same_to =
+    let is_pred_same pred_name (pr,_) = pr = pred_name in
+    let are_pred_same_to (pred_name,_,pred'_args') =
+      List.for_all (is_pred_same pred_name) pred'_args'
+    in
+    List.for_all are_pred_same_to
+  in
+  
+  print_endline "----------";
+  P.pp_formula f' |> P.dbg "The Formula";
+  let pred_calls = get_predicates f' in   
+  P.pp_list P.pp_formula pred_calls |> P.dbg "Preds";
+
+  if List.length pred_calls < 2 then
+        begin
+          print_endline "Old School Method (Less than 2 predicate calls)";
+          unfold_fold transformer goal defs_map' f'
+        end
+      else
+  begin
+    let pred_args_body' = List.map (exec_unfold_ext defs_map') pred_calls in
+    let pred_args_body, defs_map, f = solve_conflict f' defs_map' pred_args_body' in
+    P.pp_formula f |> P.dbg "The Formula (resolved)";
+    let pred_args_pred'args' = List.map (fun (pred_name, args, body) ->
+                                   let pred_calls = get_predicates body in
+                                   let pred_args' = List.map explode_pred pred_calls in
+                                   (pred_name, args, pred_args')
+                                 ) pred_args_body in
+    if are_all_pred_same_to pred_args_pred'args' then
+      let all_ms_constraints = List.mapi (fun i (pred_name, args, pred_args') ->
+                                   let args' = snd (List.hd pred_args') in
+                                   let args_args' = List.combine args args' in
+                                   let deltas = List.map (fun (arg, arg') -> AP.normalize (H.Op (Arith.Sub, [arg';arg]))) args_args' in
+                                   let args_args'_deltas = List.combine args_args' deltas in
+                                   let multiplier = (pred_name ^ (string_of_int i)) in
+                                   
+                                   let multiplied_deltas = List.fold_left (fun acc ((arg, arg'), delta) ->
+                                                               
+                                                               match delta with
+                                                                 H.Int _ ->
+                                                                  (* P.pp_formula delta |> P.dbg "delta"; *)
+                                                                  let t = H.Op (Arith.Mult, [H.Var multiplier; delta]) |> AP.normalize in
+                                                                  (* P.pp_formula t |> P.dbg "t"; *)
+                                                                  acc @ [(arg, arg', t)]
+                                                               | _ -> acc
+                                                             ) [] args_args'_deltas in
+                                   let constraints = List.map (fun (a, _, d) ->
+                                                         let aa = auto_rename a in
+                                                         let a'_md = (H.Op (Arith.Add, [a;d])) |> AP.normalize in
+                                                         H.Pred (Formula.Eq, [aa;a'_md])
+                                                       ) multiplied_deltas in
+                                   ((pred_name, multiplier), constraints)
+                                 ) pred_args_pred'args' in
+      let pred_ms, all_constraints = List.split all_ms_constraints in
+      let ms = List.map snd pred_ms in
+      let gen_cons = H.Pred (Formula.Gt, [H.Op (Arith.Add, List.map H.mk_var ms); H.Int 0]) in
+      match List.concat all_constraints with
+        [] -> unfold_fold transformer goal defs_map f
+      | all ->
+         try
+           P.pp_list P.pp_formula all |> P.dbg "All";
+           let all' = U.reduce_eq ms all in
+           P.pp_list P.pp_formula all' |> P.dbg "All'";
+           let c = List.fold_left H.mk_and gen_cons all' in
+           let model = Z.solve_model_s ms gen_cons all' in
+           
+           List.iter (fun constraints ->
+               P.pp_list P.pp_formula constraints |> P.dbg ""
+             ) all_constraints;
+           
+           List.iter (fun (id, v) -> print_endline (id ^ ": " ^ (string_of_int v))) model;
+           let pred_times = List.map (fun (pred_name, m) ->
+                                let (_, v) =
+                                  try
+                                    List.find (fun (id, _) -> id = m) model
+                                  with
+                                    Not_found ->
+                                    print_endline (m ^ " is not found in the model");
+                                    raise Not_found
+                                in
+                                (pred_name, v)
+                              ) pred_ms in
+           
+           let rec unfold_times f = function
+               [] -> f
+             | (_, 0)::xs ->
+                unfold_times f xs
+             | (pred_name, n)::xs ->
+                print_endline ("Unfolding " ^ pred_name);
+                let f' = unfold_one_pred pred_name defs_map f |> transformer in
+                unfold_times f' ((pred_name, (n-1))::xs)
+           in
+           
+           let f' = unfold_times f pred_times in
+           P.pp_formula f' |> P.dbg "The Unfolded";
+           let f'' = transformer f' in
+           P.pp_formula f'' |> P.dbg "The Transformed";
+           P.pp_rule goal |> P.dbg "The Goal";
+           let is_matched, f' = fold goal f'' in
+           
+           if is_matched then
+             begin
+               print_endline "Successfully folded..";
+               let newpred = mk_rule goal.var goal.H.args goal.fix f' in
+               P.pp_rule newpred |> P.dbg "RULE()";
+               Some [newpred]
+             end
+           else
+             begin
+               print_endline "Not folded. Next unfold continues.";
+               unfold_fold transformer goal defs_map f
+                           (* raise (Z.TestFailException "") *)
+             end
+         with
+         | Not_found ->
+            print_endline "Old School Method (Model is incomplete)";
+            unfold_fold transformer goal defs_map f
+         | Z.Z3Unsat ->
+            print_endline "Old School Method (Unsat Model)";
+            raise NotFoldable
+         | Z.NoModel ->
+            print_endline "Old School Method (No Model)";
+            guessed_unfold_fold transformer goal defs_map f
+    else
+      begin
+        print_endline "Old School Method (Calls other predicate)";
+        guessed_unfold_fold transformer goal defs_map f
+      end
+  end 
 ;;
 (*
 let get_removable_indices (rules : H.hes_rule list) =
@@ -1020,7 +1131,7 @@ and step2 qvs f defs_map p_a env predname =
                       (* |> unfold_formula defs_map *)
            |> normalize_exists qvs
   in
-  let r = uf ~time:0 transformer goalpred defs_map f in
+  let r = uf transformer goalpred defs_map f in
   
   let f = U.implode_pred predname args in
   concise (r, f) env
@@ -1099,7 +1210,7 @@ let rec get_pred_name = function
 
 let get_pred defs_map f =
   let pred_name = get_pred_name f in
-  let pred = D.find pred_name defs_map in
+  let pred = try D.find pred_name defs_map with Not_found -> print_endline ("Not found predicate " ^ pred_name); raise Not_found in
   pred;;
 
 let get_fix_op defs_map f =
@@ -1153,12 +1264,12 @@ let reduce_disj f =
 
 let rec unfold_fold_conj goal defs_map f =
   let transformer f = f |> dnf_of_formula |> unsat_elim |> taut_elim |> reduce_disj in
-  uf ~time:0 transformer goal defs_map f
+  uf transformer goal defs_map f
 ;;
 
 let rec unfold_fold_disj goal defs_map f =
   let transformer f = f |> cnf_of_formula |> unsat_elim |> taut_elim |> reduce_conj in
-  uf ~time:0 transformer goal defs_map f
+  uf transformer goal defs_map f
 ;;
 
 let rec unfold_fold_exists goal defs_map env = function
@@ -1189,10 +1300,29 @@ let rec transform_disjunction goal defs_map env f =
     | Some xs ->
        List.fold_left (fun acc x -> D.add x.H.var x acc) defs_map xs
   in
+
+  P.pp_list P.pp_formula fs |> P.dbg "Temp";
   let atomics, nonatomics = List.partition is_non_pred fs' in
   let new_preds, body =
     match nonatomics with
-      x::y::[] ->
+      _::_::_ ->
+       let fixes = List.map (get_fix_op defs_map') nonatomics in
+       let fix =
+         if List.exists ((=) Fixpoint.Greatest) fixes then
+           Fixpoint.Greatest
+         else
+           Fixpoint.Least
+       in
+       let f = nonatomics |> List.sort_uniq compare_raw_hflz |> mk_ors in
+       let newgoalname = new_predicate_name () in
+       let args = List.map H.mk_var goal.H.args in
+       let ps = goal.H.args in
+
+       let newgoal = {H.var=newgoalname; args=ps; fix=fix; body=f} in
+       let r = unfold_fold_disj newgoal defs_map' f in
+       let f' = U.implode_pred newgoalname args in
+       concise (r, f') env
+    (* | x::y::[] ->
        let xfix = get_fix_op defs_map' x in
        let yfix = get_fix_op defs_map' y in
        let fix =  if xfix = Fixpoint.Greatest || yfix = Fixpoint.Greatest
@@ -1208,7 +1338,7 @@ let rec transform_disjunction goal defs_map env f =
        let newgoal = {H.var=newgoalname; args=ps; fix=fix; body=f} in
        let r = unfold_fold_disj newgoal defs_map' f in
        let f' = U.implode_pred newgoalname args in
-       concise (r, f') env
+       concise (r, f') env *)
     | [f] -> None, f
     | _ -> None, H.Bool false
   in

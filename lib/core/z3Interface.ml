@@ -19,8 +19,9 @@ open Hflmc2_syntax
 module H = Raw_hflz
 module P = Printer
 
-exception TestFailedException of string
-
+exception TestFailException of string
+exception Z3Unsat
+exception NoModel
 exception UnsupportedFormula of string
 
 let rec arith_to_z3 ctx bounds = function
@@ -209,29 +210,29 @@ let is_unsat f =
    )
 ;;
 
-exception TestFailException of string
-                             
-let solve_model f =
+
+let simplify f =
   let cfg = [("model", "true"); ("proof", "false")] in
   let ctx = (mk_context cfg) in
 
   let f' = hflz_to_z3 ctx f in
   let g = mk_goal ctx true false false in
   Goal.add g [f'];
-
-  let ar = Tactic.apply (and_then ctx (mk_tactic ctx ("simplify")) (mk_tactic ctx "solve-eqs") []) g None in
-
+  Expr.to_string f' |> P.dbg "Goal";
+  let ar = Tactic.apply (mk_tactic ctx ("simplify")) g None in
+  
   let solver = mk_solver ctx None in
   let f e = Solver.add solver [ e ] in
   ignore (List.map f (get_formulas (get_subgoal ar 0)));
+  Solver.to_string solver |> P.dbg "Solver";
   let q = check solver [] in
   
   if q != SATISFIABLE then
-    raise (TestFailException "UNSAT")
+    raise Z3Unsat
   else
     let m = get_model solver in
     match m with
-      None -> raise (TestFailException "NO_MODEL")
+      None -> raise NoModel
       | Some m ->
          let ds = Model.get_const_decls m in
          let model = List.fold_left (fun model d ->
@@ -246,6 +247,69 @@ let solve_model f =
                        ) [] ds
          in
          model
+;;
+                        
+let solve_model f =
+  let cfg = [("model", "true"); ("proof", "false")] in
+  let ctx = (mk_context cfg) in
+
+  let f' = hflz_to_z3 ctx f in
+  let g = mk_goal ctx true false false in
+  Goal.add g [f'];
+  Expr.to_string f' |> P.dbg "Goal";
+                   
+  let ar = Tactic.apply (and_then ctx (mk_tactic ctx ("simplify")) (mk_tactic ctx "solve-eqs") []) g None in
+  
+  let solver = mk_solver ctx None in
+  let f e = Solver.add solver [ e ] in
+  ignore (List.map f (get_formulas (get_subgoal ar 0)));
+  Solver.to_string solver |> P.dbg "Solver";
+  let q = check solver [] in
+  
+  if q != SATISFIABLE then
+    raise Z3Unsat
+  else
+    let m = get_model solver in
+    match m with
+      None -> raise NoModel
+      | Some m ->
+         let ds = Model.get_const_decls m in
+         let model = List.fold_left (fun model d ->
+                         let e = FuncDecl.apply d [] in
+                         match Z3.Model.eval m e true with
+                           None -> model
+                         | Some v ->
+                            if Expr.is_numeral v then
+                              (FuncDecl.get_name d |> Symbol.get_string, Expr.to_string v |> int_of_string)::model
+                            else
+                              model
+                       ) [] ds
+         in
+         model
+;;
+
+let solve_model_s ms gen fs =
+  let cfg = [("model", "true"); ("proof", "false")] in
+  let ctx = (mk_context cfg) in
+
+  let all = List.fold_left H.mk_and gen fs in
+  
+  let model = solve_model all in
+  
+  if List.for_all (fun m -> List.exists (fun (m',_) -> m=m') model) ms then
+    begin
+      model
+    end
+  else
+    let fs' = List.map (fun (s,i) -> H.Pred (Formula.Eq, [H.Var s; H.Int i])) model in
+    let all = fs' @ fs in
+    match all with
+      [] -> []
+    | f'::fs' ->
+       let c = List.fold_left H.mk_and f' fs' in
+       let model' = simplify c in
+       let model'' = model @ model' in
+       model'' 
 ;;
 
 (*         
