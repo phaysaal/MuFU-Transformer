@@ -30,3 +30,37 @@ Mult x y r =μ (y = 0 /\ r = 0) \/ (y != 0 /\ Mult x (y-1) (r-x)).
 
 (check-sat)
 */
+
+/*
+G x z r =v (Dmult ((2 * x) + 5) z r) \/ (∃s. (Mult x z s) /\ (r = (5 * z) + (2 * s))).
+
+Dmult ((2*x)+5) z r \/ Mult x z ((r/2)-(5*(z/2)))
+
+(z = 0 /\ (r/2)-(5*(z/2)) = 0) \/ (z != 0 /\ Mult x (z-1) ((r/2)-(5*(z/2))-x))
+
+Unfoldable Formula: (Dmult ((2*x)+5) z r \/ Mult x z ((r/2)-(5*(z/2))))
+Unfoldable Predicates: [Dmult ((2*x)+5) z r,Mult x z ((r/2)-(5*(z/2)))]
+Unfolded: (((z<>0 \/ r<>0) /\ (z=0 \/ Dmult ((2*x)+5) (z-1) (r-((2*x)+5)))) \/ ((z=0 /\ (r-(5*z))=0) \/ (z<>0 /\ Mult x (z-1) (((r/2)-(5*(z/2)))-x))))
+unsat elimination: ((z=0 \/ (Dmult ((2*x)+5) (z-1) (r-((2*x)+5)) \/ Mult x (z-1) (((r/2)-(5*(z/2)))-x))) /\ ((z=0 \/ ((r-(5*z))=0 \/ (Dmult ((2*x)+5) (z-1) (r-((2*x)+5)) \/ Mult x (z-1) (((r/2)-(5*(z/2)))-x)))) /\ ((z=0 \/ ((r-(5*z))=0 \/ (z<>0 \/ Dmult ((2*x)+5) (z-1) (r-((2*x)+5))))) /\ ((z=0 \/ (r<>0 \/ (z<>0 \/ Mult x (z-1) (((r/2)-(5*(z/2)))-x)))) /\ ((z=0 \/ (r<>0 \/ z<>0)) /\ ((z=0 \/ (z<>0 \/ Dmult ((2*x)+5) (z-1) (r-((2*x)+5)))) /\ (((r-(5*z))=0 \/ (r<>0 \/ (z<>0 \/ Mult x (z-1) (((r/2)-(5*(z/2)))-x)))) /\ ((r-(5*z))=0 \/ (r<>0 \/ z<>0)))))))))
+tautology elimination: ((z=0 \/ (Dmult ((2*x)+5) (z-1) (r-((2*x)+5)) \/ Mult x (z-1) (((r/2)-(5*(z/2)))-x))) /\ (z=0 \/ ((r-(5*z))=0 \/ (Dmult ((2*x)+5) (z-1) (r-((2*x)+5)) \/ Mult x (z-1) (((r/2)-(5*(z/2)))-x)))))
+Reduced conjuncts:
+(z=0 \/ (Dmult ((2*x)+5) (z-1) (r-((2*x)+5)) \/ Mult x (z-1) (((r/2)-(5*(z/2)))-x)))
+
+
+Before Fold: 
+(z=0 \/ (Dmult ((2*x)+5) (z-1) (r-((2*x)+5)) \/ Mult x (z-1) (((r/2)-(5*(z/2)))-x)))
+
+Find Matching: 
+(Dmult ((2*x)+5) (z-1) (r-((2*x)+5)) \/ Mult x (z-1) (((r/2)-(5*(z/2)))-x))
+(Dmult ((2*x)+5) z r \/ Mult x z ((r/2)-(5*(z/2))))
+
+x=x
+z=z-1
+r=(r-((2*x)+5))
+
+x=x
+z=z-1
+((r/2)-(5*(z/2)))=(((r/2)-(5*(z/2)))-x)
+
+Not folded. Next unfold continues.
+*/
