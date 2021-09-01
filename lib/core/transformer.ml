@@ -11,6 +11,8 @@ module U = MatchMaker
 module D = Map.Make(String)
 module AP = ArithmeticProcessor
 
+type hfl = H.raw_hflz
+
 exception StrangeSituation of string
 exception UnsupportedNow of string
 
@@ -69,6 +71,17 @@ let rec mk_ands = function
      H.And (f, mk_ands fs)
 ;;
 
+let rec get_pred_name = function
+    H.Var s -> s
+  | H.App (f, _) -> get_pred_name f
+  | _ -> raise (StrangeSituation "Not a predicate")
+;;
+
+let get_pred defs_map f =
+  let pred_name = get_pred_name f in
+  let pred = try D.find pred_name defs_map with Not_found -> print_endline ("Not found predicate " ^ pred_name); raise Not_found in
+  pred;;
+
 let not_taut_exists s f =
   let t = H.Exists (s, f) in
   not (is_taut t)
@@ -118,23 +131,6 @@ let mk fn (f1, f2) =
     fn f2 f1
 ;;
 
-let rec get_conjuncts = function
-    H.And (f1, f2) ->
-     let f1' = get_conjuncts f1 in
-     let f2' = get_conjuncts f2 in
-     f1' @ f2'
-  | f ->
-     [f]
-;;
-
-let rec get_disjuncts = function
-    H.Or (f1, f2) ->
-     let f1' = get_disjuncts f1 in
-     let f2' = get_disjuncts f2 in
-     f1' @ f2'
-  | f ->
-     [f]
-;;
 
 let rec cnf_of_formula f =
   let rec mk_left x y =
@@ -152,7 +148,7 @@ let rec cnf_of_formula f =
     | H.Or (f1, f2) -> mk_right (mk f1) (mk f2)
     | _ -> f 
   in
-  let f' = mk f |> get_conjuncts |> List.sort_uniq compare_raw_hflz |> mk_ands in
+  let f' = mk f |> U.get_conjuncts |> List.sort_uniq compare_raw_hflz |> mk_ands in
   f'
 
 and dnf_of_formula f =
@@ -171,7 +167,7 @@ and dnf_of_formula f =
     | H.And (f1, f2) -> mk_right (mk f1) (mk f2)
     | _ -> f 
   in
-  let f' = mk f |> get_disjuncts |> List.sort_uniq compare_raw_hflz |> mk_ors in
+  let f' = mk f |> U.get_disjuncts |> List.sort_uniq compare_raw_hflz |> mk_ors in
   f'
 ;;
 
@@ -321,19 +317,7 @@ let normalize f =
   |> taut_elim
 ;;
 
-let explode_pred f =
-  let rec aux acc = function
-      H.App (f1, f2) ->
-       aux (f2::acc) f1
-    | H.Var s -> s, acc
-    | f ->
-       P.pp_formula f |> P.dbg "ERROR";
-       raise (StrangeSituation "Unsupported Predicate Naming")
-  in
-  let r = aux [] f in
-  r
-;;
-
+(** n -> ["..$n"; "..$(n-1)"; ...; "..1"] *)
 let rec get_temps_n n =
   if n > 0 then
     (".." ^ (string_of_int n)) ::get_temps_n (n-1)
@@ -354,8 +338,8 @@ let subs_vars params args f =
     ) f p_t
 ;;
 
-let exec_unfold_ext defs_map f =
-  let res : (string * H.raw_hflz list) = try explode_pred f with e -> print_endline "exec_unfold"; raise e in
+(* let exec_unfold_ext defs_map f =
+  let res : (string * hfl list) = try explode_pred f with e -> print_endline "exec_unfold"; raise e in
   let f (pred_name, args) =
     let pred = try
         D.find pred_name defs_map
@@ -363,20 +347,39 @@ let exec_unfold_ext defs_map f =
         print_int (D.cardinal defs_map); 
         print_endline pred_name; raise e in
     let params : string list = pred.H.args in
-    let temps = get_temps_n (List.length args) in
+    let temps = get_temps_n (List.length args) in (** [t1; t2; ...] = ["..$n"; "..$(n-1)"; ...; "..1"] *)
     let vtemps = List.map (fun t -> H.Var t) temps in
   
-    let body' = subs_vars params vtemps pred.H.body in
-    let body'' = subs_vars temps args body' in
+    let body' = subs_vars params vtemps pred.H.body in (** body[x1:=t1; ...] *)
+    let body'' = subs_vars temps args body' in (** body[x1:=arg1; ...] *)
     (pred_name, args, body'', f)
+  in
+  f res
+;; *)
+
+let exec_unfold defs_map f =
+  let res : (string * hfl list) = try U.explode_pred f with e -> print_endline "exec_unfold"; raise e in
+  let f (pred_name, args) =
+    let pred = try
+        D.find pred_name defs_map
+      with e ->
+        print_int (D.cardinal defs_map); 
+        print_endline pred_name; raise e in
+    let params : string list = pred.H.args in
+    let temps = get_temps_n (List.length args) in (** [t1; t2; ...] = ["..$n"; "..$(n-1)"; ...; "..1"] *)
+    let vtemps = List.map (fun t -> H.Var t) temps in
+  
+    let body' = subs_vars params vtemps pred.H.body in (** body[x1:=t1; ...] *)
+    let body'' = subs_vars temps args body' in (** body[x1:=arg1; ...] *)
+    body''
   in
   f res
 ;;
 
-let exec_unfold defs_map f =
+(* let exec_unfold defs_map f =
   let (_, _, body, _) = exec_unfold_ext defs_map f in
   body
-;;
+;; *)
 
 let unfold_formula defs_map f =
   let rec unfold_formula defs_map f =
@@ -446,7 +449,45 @@ let unfold_one_pred pred_name defs_map f =
        H.mk_and (unfold_formula defs_map f1) (unfold_formula defs_map f2)
     | H.Abs (s, f1) ->
        H.mk_abs s (unfold_formula defs_map f1)
-    | H.App _ when fst (explode_pred f) = pred_name ->
+    | H.App _ when fst (U.explode_pred f) = pred_name ->
+       exec_unfold defs_map f
+    | H.App _ -> f
+    | H.Int _ -> f
+    | H.Op (o, f1) ->
+       H.mk_op o (List.map (unfold_formula defs_map ) f1)
+    | H.Pred (p, f1) ->
+       H.Pred (p, List.map (unfold_formula defs_map ) f1)
+    | H.Exists (s, f1) ->
+       H.Exists (s, unfold_formula defs_map  f1)
+    | H.Forall (s, f1) ->
+       H.Forall (s, unfold_formula defs_map f1)
+  in
+  let f' = unfold_formula defs_map f in
+  P.pp_formula f' |> P.dbg "Unfolded";
+  f'
+;;
+
+let preds_eq pred1 pred2 =
+  try
+    let (p1, args1) = U.explode_pred pred1 in
+    let (p2, args2) = U.explode_pred pred2 in
+    p1 = p2 && List.for_all (fun (a,b) -> is_taut (H.Pred (Formula.Eq, [a;b]))) (List.combine args1 args2)
+  with
+    _ -> false
+;;
+
+let unfold_pred pred defs_map f =
+  let rec unfold_formula defs_map f =
+    match f with
+    | H.Bool _ -> f
+    | H.Var _ -> f
+    | H.Or (f1, f2) ->
+       H.mk_or (unfold_formula defs_map f1) (unfold_formula defs_map f2)
+    | H.And (f1, f2) ->
+       H.mk_and (unfold_formula defs_map f1) (unfold_formula defs_map f2)
+    | H.Abs (s, f1) ->
+       H.mk_abs s (unfold_formula defs_map f1)
+    | H.App _ when preds_eq f pred ->
        exec_unfold defs_map f
     | H.App _ -> f
     | H.Int _ -> f
@@ -602,7 +643,7 @@ let reduce_args1 sv args =
 
 let rec ex_trans_formula s predname newpredname = function
     H.Exists (s', ((H.App _) as f)) when s'=s ->
-    let (p, args) = explode_pred f in
+    let (p, args) = U.explode_pred f in
     if p = predname then
       let args' = reduce_args1 s args in
       U.implode_pred newpredname args'
@@ -771,8 +812,10 @@ let rec get_permutation = function
   (int * string list) list list
 *)
 
-let get_unfold_set all_deps f =
+(*
+let get_unfold_set all_deps goal_preds f =
 
+  P.pp_formula f |> P.dbgn "Debugged Formula";
   let rec multiply all_deps = function
       [] -> [[]]
     | x::xs ->
@@ -793,21 +836,26 @@ let get_unfold_set all_deps f =
   in
   
   let conjuncts = get_conjuncts f in
-  let conjuncts_set = List.map (fun c -> (c, get_probable_set all_deps c)) conjuncts in
-
+  P.pp_list P.pp_formula conjuncts |> P.dbg "All Conjuncts";
   
-  let conjuncts_set' = List.filter (fun (_, xs) -> List.length xs > 0) conjuncts_set |> List.map fst in
-
+  let conjuncts_set = List.map (fun c -> (c, get_probable_set all_deps c)) conjuncts in
+  P.pp_list (fun (f, (a : (int * string list) list list)) -> P.pp_formula f ^ "-> {" ^ (P.pp_list (fun (b:(int * string list) list) -> "^" ^ P.pp_list (fun (d,ss) -> "[" ^ string_of_int d ^ " & " ^ (String.concat "+" ss) ^ "]") b ^ "^") a) ^ "}\n") conjuncts_set |> P.dbgn "Probable Set";
+  
+  let conjuncts_set' = List.filter (fun (_, xs) ->
+                           List.exists (fun ys -> List.length ys >= List.length goal_preds) xs
+                           ) conjuncts_set |> List.map fst in
+  P.pp_list P.pp_formula conjuncts_set' |> P.dbg "Chosen Set";
+  
   List.map (fun conjunct ->
       let pred_set = get_predicate_set conjunct |> List.sort_uniq H.compare_raw_hflz in
-      if List.length pred_set > 10 then
+      if List.length pred_set > 5 then
         [[]]
       else
         let perm_pred = get_permutation pred_set in
         List.filter ((<>)[]) perm_pred
     ) conjuncts_set' |> List.concat
   
-;;
+;; *)
 
 let rec get_predicates = function
     H.App _ as f -> [f]
@@ -833,8 +881,9 @@ let rec auto_rename = function
   | H.Bool _ as f -> f
 ;;
 
-let rec bf_unfold_fold ?(time=0) ?(unfold_set=[]) all_deps transformer goal defs_map f =
-      let new_unfold_set = get_unfold_set all_deps f in
+(*
+let rec bf_unfold_fold ?(time=0) ?(unfold_set=[]) all_deps transformer goal defs_map goal_preds f =
+      let new_unfold_set = get_unfold_set all_deps goal_preds f in
       P.pp_list (fun xs -> "[" ^ P.pp_list P.pp_formula xs ^ "]") new_unfold_set |> P.dbg "Unfold Set";
       let unfolded_pair_set = List.map (fun x -> (f,x)) new_unfold_set in
       let unfold_set' = unfold_set @ unfolded_pair_set in
@@ -856,16 +905,18 @@ let rec bf_unfold_fold ?(time=0) ?(unfold_set=[]) all_deps transformer goal defs
          else
            begin
              print_endline "Not folded. Next unfold continues.";
-             bf_unfold_fold ~time:(time+1) ~unfold_set:other_preds all_deps transformer goal defs_map f''
+             bf_unfold_fold ~time:(time+1) ~unfold_set:other_preds all_deps transformer goal defs_map goal_preds f''
            end
 ;;
+ *)
 
 let pp_deps (deps : (int * string list) list) =
   let pp_dep (i, ps) = "(" ^ (string_of_int i) ^ ", [" ^ P.pp_list P.id ps ^ "])" in
   P.pp_list pp_dep deps
 ;;
 
-let rec build_all_deps i path (deps:(string * H.raw_hflz list) list D.t) (v:string) : (int * string list) list =
+(*
+let rec build_all_deps i path (deps:(string * hfl list) list D.t) (v:string) : (int * string list) list =
   let pred_names_args = D.find v deps in
   let pred_names = List.map fst pred_names_args in
   let pred_names' = List.filter (fun p -> not (List.mem p path)) pred_names in
@@ -876,11 +927,12 @@ let rec build_all_deps i path (deps:(string * H.raw_hflz list) list D.t) (v:stri
   else
     []
 ;;
-
+ *)
+(*
 let guessed_unfold_fold transformer goal defs_map f =
-  let deps : (string * H.raw_hflz list) list D.t =
+  let deps : (string * hfl list) list D.t =
     D.fold (fun v f acc ->
-        let preds = get_predicate_set f.H.body |> List.sort_uniq H.compare_raw_hflz in
+        let preds = get_predicate_set f.H.body (* |> List.sort_uniq H.compare_raw_hflz *) in
         let pred_names_args = List.map (fun p -> explode_pred p) preds in
         D.add v pred_names_args acc) defs_map D.empty
   in
@@ -897,6 +949,538 @@ let guessed_unfold_fold transformer goal defs_map f =
   
   bf_unfold_fold all_deps transformer goal defs_map f
 ;;
+ *)
+
+let substitute_args to_be by (args : hfl list) =
+  if List.length to_be <> List.length by then
+    raise (StrangeSituation "tobe <> by in substitution")
+  else
+    let temps = get_temps_n (List.length to_be) in
+    let subs_pair1 = List.combine to_be (List.map H.mk_var temps) in
+    let subs_pair2 = List.combine temps by in
+    let subs_arg (arg:hfl) ((to_be:string), (by:hfl)) : hfl = U.subs_var to_be by arg |> AP.normalize in
+    List.map (fun arg ->
+        let arg' = List.fold_left subs_arg arg subs_pair1 in
+        List.fold_left subs_arg arg' subs_pair2
+      ) args
+;;
+
+(*
+let rec build_tree_deps i (path:string list) defs_map (deps:(string * hfl list) list D.t) args (v:string) : (int list * string * hfl list) list =
+  let pred_names_args = D.find v deps in
+  let params = (D.find v defs_map).H.args |> List.map H.mk_var in
+  (* let pred_names = List.map fst pred_names_args in *)
+  let pred_names_indices : (int list * string * hfl list) list =
+    List.mapi (fun k (p, a) ->
+        let to_be = (D.find p defs_map).H.args in
+        let args' = substitute_args to_be args a in
+        (i@[k],p,args')
+      ) pred_names_args
+  in
+  
+  let nonterminals = List.filter (fun (_, p, _) -> not (List.mem p path)) pred_names_indices in
+  if List.length nonterminals > 0 then
+    let fn k a (v : string) = build_tree_deps k (path@[v]) defs_map deps a v in
+    let other_dep = List.map (fun (i, p, a) -> fn i a p) nonterminals |> List.concat in
+    pred_names_indices@other_dep
+  else
+    pred_names_indices
+;;
+
+let pp_path_deps (deps : (int list * string * hfl list) list) =
+  let pp_dep (i, ps, args) = "(" ^ (P.pp_list ~sep:"" string_of_int i) ^ "," ^ ps ^ ("{" ^ P.pp_list P.pp_formula args ^ "}") ^ ")" in
+  "[" ^ P.pp_list pp_dep deps ^ "]"
+;;
+
+let get_unfold_path (all_deps : (int list * string * hfl list) list D.t)  f =
+  P.pp_formula f |> P.dbgn "Debugged Formula";
+  let multiply_two (xs : (int list * string * hfl list) list) (ys : (int list * string * hfl list) list) : (int list * string * hfl list) list list =
+    List.map (fun x -> x::ys) xs 
+  in
+  let rec multiply all_deps = function
+      [] -> [[]]
+    | x::xs ->
+       let rs : (int list * string * hfl list) list list = multiply all_deps xs in
+       (* pp_path_deps x |> P.dbg "x"; *)
+       let rs' = List.map (fun (r:(int list * string * hfl list) list) -> multiply_two x r) rs |> List.concat in
+       (* P.pp_list pp_path_deps rs' |> P.dbg "rs'"; *)
+       rs' 
+  in
+  let get_probable_set (all_deps : (int list * string * hfl list) list D.t) conj =
+    let pred_set = get_predicate_set conj |> List.map explode_pred |> List.map fst in
+    let all_paths_seperated : (int list * string * hfl list) list list = List.map (fun p ->
+                                  let all_paths = D.find p all_deps in
+                                  let possible_paths = List.filter (fun (_, p', _) -> List.mem p' pred_set) all_paths in
+                                  possible_paths
+                                ) pred_set in
+    let multiplied_set : (int list * string * hfl list) list list = multiply all_deps all_paths_seperated in
+    
+    List.filter (fun (xs : (int list * string * hfl list) list) ->
+        let ps = List.map (fun (_,a,_) -> a) xs in
+        List.for_all (fun p -> List.mem p ps) pred_set
+      ) multiplied_set 
+  in
+  
+  let conjuncts = get_conjuncts f in
+  P.pp_list P.pp_formula conjuncts |> P.dbg "All Conjuncts";
+  let conjuncts_set = List.map (fun c -> (c, get_probable_set all_deps c)) conjuncts in
+  
+  P.pp_list (fun (f, (a : (int list * string * hfl list) list list)) -> P.pp_formula f ^ "-> { " ^ (P.pp_list ~sep:" ; "pp_path_deps a) ^ " }\n"
+    ) conjuncts_set |> P.dbgn "Probable Set";
+
+  
+  (* let conjuncts_set' = List.filter (fun (_, xs) ->
+                           List.exists (fun ys -> List.length ys >= List.length goal_preds) xs
+                           ) conjuncts_set |> List.map fst in
+  P.pp_list P.pp_formula conjuncts_set' |> P.dbg "Chosen Set"; *)
+  conjuncts_set
+  (*List.map (fun conjunct ->
+      let pred_set = get_predicate_set conjunct |> List.sort_uniq H.compare_raw_hflz in
+      if List.length pred_set > 5 then
+        [[]]
+      else
+        let perm_pred = get_permutation pred_set in
+        List.filter ((<>)[]) perm_pred
+    ) conjuncts_set |> List.concat
+   *)
+;;
+
+
+let rec analyze_bf ?(time=0) ?(unfold_set=[]) all_deps transformer goal defs_map f =
+      let new_unfold_set = get_unfold_path all_deps f in
+      (* P.pp_list (fun xs -> "[" ^ P.pp_list P.pp_formula xs ^ "]") new_unfold_set |> P.dbg "Unfold Set"; *)
+      (* let unfolded_pair_set = List.map (fun x -> (f,x)) new_unfold_set in
+      let unfold_set' = unfold_set @ unfolded_pair_set in
+      
+      match unfold_set' with
+        [] -> None
+      | (f, pred)::other_preds ->
+         P.pp_formula f |> P.dbg "Unfoldable Formula";
+         ("[" ^ P.pp_list P.pp_formula pred ^ "]") |> P.dbg "Unfoldable Predicates";
+         let f' = controlled_unfold_formula pred defs_map f in
+         let f'' = transformer f' in
+         let is_matched, f' = fold goal f'' in
+         if is_matched then
+           begin
+             print_endline "Successfully folded..";
+             let newpred = mk_rule goal.var goal.H.args goal.fix f' in
+             Some [newpred]
+           end
+         else
+           begin
+             print_endline "Not folded. Next unfold continues.";
+             analyze_bf ~time:(time+1) ~unfold_set:other_preds all_deps transformer goal defs_map goal_preds f''
+           end
+       *)
+      ()
+;;
+ *)
+
+let pp_path_deps1 (deps : (hfl list * string * hfl list) list) =
+  let pp_dep (i, ps, args) = "(" ^ (P.pp_list ~sep:">>" P.pp_formula i) ^ "," ^ ps ^ ("{" ^ P.pp_list P.pp_formula args ^ "}") ^ ")" in
+  "[" ^ P.pp_list pp_dep deps ^ "]"
+;;
+
+let pp_path_deps2 (pred_times, (deps : (hfl list * string * hfl list) list)) =
+  let pp_times (((pred_name, args), times) : ((string * hfl list) * int)) = pred_name ^ " " ^ P.pp_list P.pp_formula args ^ "->" ^ (string_of_int times) in
+  let pp_dep (i, ps, args) = "(" ^ (P.pp_list ~sep:">>" P.pp_formula i) ^ "," ^ ps ^ ("{" ^ P.pp_list P.pp_formula args ^ "}") ^ ")" in
+  "<" ^ P.pp_list pp_times pred_times ^ "> [" ^ P.pp_list pp_dep deps ^ "]"
+;;
+
+let unfold_along_a_path_times defs_map uf_times path_seq f =
+
+  let rec unfold_along_path f = function
+      [] -> f
+    | node::xs ->
+       P.pp_formula node |> P.dbg "To be unfolded";
+       let f' = unfold_pred node defs_map f in
+       P.pp_formula f' |> P.dbg "f' (after unfolding)";
+       unfold_along_path f' xs
+  in
+
+  let rec unfold_times f = function
+      [] -> f
+    | (_, 0)::xs ->
+       unfold_times f xs
+    | (pred_name, n)::xs ->
+       print_endline ("Unfolding " ^ pred_name);
+       let f' = unfold_one_pred pred_name defs_map f in
+       unfold_times f' ((pred_name, (n-1))::xs)
+  in
+
+           
+  P.pp_formula f |> P.dbg "Unfolding will take place in";
+  let f' =
+    if uf_times = 0
+    then f
+    else if uf_times = 1
+    then let f' = unfold_along_path f path_seq in
+         f'
+    else if List.length path_seq = 1
+    then let (pred, _) = U.explode_pred (List.hd path_seq) in
+      unfold_times f [(pred, uf_times)]
+    else
+      raise Err
+  in
+
+  f'
+;;
+
+let unfold_fold_along_a_path defs_map ((times, path) : (((string * hfl list) * int) list * (hfl list * string * hfl list) list)) f =
+  print_endline "\nUnfold Begins\n";
+  let rec find_first fn = function
+      [] -> raise Not_found
+    | x::xs -> if fn x
+               then (x, xs)
+               else let (x', xs') = find_first fn xs in
+                    (x', x::xs')
+  in
+  
+  P.pp_formula f |> P.dbg "formula (conjunct) to unfold";
+  pp_path_deps2 (times, path) |> P.dbg "The Path";
+  
+  let (f',_) = List.fold_left (fun (f, times) (path_seq, pred, _) ->
+                   let (_,uf_times), times' = find_first (fun ((pred',_),_) -> pred'=pred) times in
+                   
+                   let f' = unfold_along_a_path_times defs_map uf_times path_seq f in
+                   (f', times')
+                 ) (f, times) path
+  in
+  f'
+;;
+
+let unfold_fold_along_paths goal transformer defs_map (unfold_paths : (hfl * (((string * hfl list) * int) list * (hfl list * string * hfl list) list) list) list) f =
+  print_endline "\nUnfold+fold Try Begins\n";
+
+  P.pp_formula f |> P.dbg "f";
+  let conjuncts = U.get_conjuncts f in
+  let rec multiply = function
+      [] -> [[]]
+    | x::xs ->
+       let rs = multiply xs in
+       if List.length x = 0 then
+         rs
+       else
+         let rs' = List.map (fun r -> List.map (fun x' -> x'::r) x) rs |> List.concat in
+         rs' 
+  in
+  let possibilities =
+    List.fold_left
+      (fun acc conjunct ->
+        try
+          let (_, paths) = List.find (fun (f, _) -> f = conjunct) unfold_paths in
+          string_of_int (List.length paths) |> P.dbg "Total paths";
+          let f_paths = List.map (fun p -> (conjunct, p)) paths in
+          acc @ [f_paths]
+        with
+          _ -> acc
+      ) [] conjuncts
+  in
+  "[" ^ P.pp_list (fun pos -> List.length pos |> string_of_int) possibilities ^ "]" |> P.dbg "Possibilities"; 
+  
+  let all_possibilities = multiply possibilities in
+  string_of_int (List.length all_possibilities) |> P.dbg "Total possibilities";
+  
+  let r = List.fold_left (fun acc a_possibility ->
+              print_endline "Trying a possibility";
+              match acc with
+                Some _ -> acc
+              | None ->
+                 try
+                   let conjuncts' =
+                     List.map (fun conjunct ->
+                         P.pp_formula conjunct |> P.dbg "Conjunct:";
+                         try
+                           let (_, path) = List.find (fun (f',_) -> f'=conjunct) a_possibility in
+                           unfold_fold_along_a_path defs_map path conjunct
+                         with
+                           Not_found -> conjunct
+                         | e -> raise e
+                       ) conjuncts in
+                   let f' = H.mk_ands conjuncts' |> transformer in
+                   let is_matched, f'' = fold goal f' in
+                   if is_matched then
+                     Some f''
+                   else
+                     None
+                 with
+                   _ -> None
+            ) None all_possibilities
+  in
+  r
+
+;;
+
+let rec build_tree_deps1 (prefix:hfl list) (path:string list) defs_map (deps:hfl list D.t) args (v:string) : (hfl list * string * hfl list) list =
+  let pred_names_args = D.find v deps in
+  let params = (D.find v defs_map).H.args |> List.map H.mk_var in
+  (* let pred_names = List.map fst pred_names_args in *)
+  let pred_names_indices : (hfl list * string * hfl list) list =
+    List.map (fun pred_call ->
+        let (p, a) = U.explode_pred pred_call in
+        let to_be = (D.find v defs_map).H.args in
+        let args' = substitute_args to_be args a in
+        (prefix,p,args')
+      ) pred_names_args
+  in
+  
+  let nonterminals = List.filter (fun (_, p, _) -> not (List.mem p path)) pred_names_indices in
+  if List.length nonterminals > 0 then
+    let fn (prefix, p, a) =
+      (* let to_be = (D.find p defs_map).H.args in
+      let args' = substitute_args to_be args a in *)
+      let pred_call' = U.implode_pred p a in
+      build_tree_deps1 (prefix@[pred_call']) (path@[p]) defs_map deps a p
+    in
+    let other_dep = List.map fn nonterminals |> List.concat in
+    pred_names_indices@other_dep
+  else
+    pred_names_indices
+;;
+
+let get_times_of_unfold orig_formula target_formula =
+
+  P.pp_formula orig_formula |> P.dbg "Original Formula";
+  P.pp_formula target_formula |> P.dbg "Target Formula";
+  
+  let orig_preds = get_predicates orig_formula in
+  let target_preds = get_predicates target_formula in
+  let target_preds_args' = List.map U.explode_pred target_preds in
+  
+  let pred_args_pred'args' =
+    List.map (fun predicate ->
+        let pred_name, args = U.explode_pred predicate in
+        let pred_args' = List.find (fun (p,_) -> p = pred_name) target_preds_args' in
+        (pred_name, args, pred_args')
+      ) orig_preds
+  in (** Original predicate name, arguments, unfolded predicate call *)
+
+  let all_ms_constraints =
+    List.mapi
+      (fun i (pred_name, org_args, pred_args') ->
+        P.pp_list P.pp_formula org_args |> P.dbg "org_args";
+        (fun (a,b) -> a ^ " " ^ P.pp_list P.pp_formula b) pred_args' |> P.dbg "pred_args'";
+        
+        let args' = snd pred_args' in
+        
+        let args_args' = List.combine org_args args' in
+        let deltas = List.map (fun (arg, arg') -> AP.normalize (H.Op (Arith.Sub, [arg';arg]))) args_args' in
+        let args_args'_deltas = List.combine args_args' deltas in
+        let multiplier = (pred_name ^ (string_of_int i)) in
+        
+        let multiplied_deltas =
+          List.fold_left (fun acc ((arg, arg'), delta) ->
+              match delta with
+                H.Int _ ->
+                 (* P.pp_formula delta |> P.dbg "delta"; *)
+                 let t = H.Op (Arith.Mult, [H.Var multiplier; delta]) |> AP.normalize in
+                 (* P.pp_formula t |> P.dbg "t"; *)
+                 acc @ [(arg, arg', t)]
+              | _ -> acc
+            ) [] args_args'_deltas in
+        let constraints = List.map (fun (a, _, d) ->
+                              let aa = auto_rename a in
+                              let a'_md = (H.Op (Arith.Add, [a;d])) |> AP.normalize in
+                              H.Pred (Formula.Eq, [aa;a'_md])
+                            ) multiplied_deltas in
+        (((pred_name, org_args), multiplier), constraints)
+      ) pred_args_pred'args' in
+  let pred_ms, all_constraints = List.split all_ms_constraints in (** Predicates with their multipliers, all constraints *)
+  let ms = List.map snd pred_ms in (** Multipliers *)
+  let gen_cons = H.Pred (Formula.Gt, [H.Op (Arith.Add, List.map H.mk_var ms); H.Int 0]) in
+  
+  match List.concat all_constraints with
+    [] -> []
+  | all ->
+     P.pp_list P.pp_formula all |> P.dbg "All";
+     let all' = U.reduce_eq ms all in
+     P.pp_list P.pp_formula all' |> P.dbg "All'";
+     let c = List.fold_left H.mk_and gen_cons all' in
+     let model = Z.solve_model_s ms gen_cons all' in
+     
+     List.iter (fun constraints ->
+         P.pp_list P.pp_formula constraints |> P.dbg ""
+       ) all_constraints;
+           
+           
+     List.iter (fun (id, v) -> print_endline (id ^ ": " ^ (string_of_int v))) model;
+     List.map (fun (pred, m) ->
+         let (_, v) =
+           try
+             List.find (fun (id, _) -> id = m) model
+           with
+             Not_found ->
+             print_endline (m ^ " is not found in the model");
+             raise Not_found
+         in
+         (pred, v)
+       ) pred_ms
+;;
+
+
+
+let get_times_of_unfold_from_paths (possible_paths : (hfl list * string * hfl list) list list) =
+
+  
+  let get_times_of_unfold_from_path (path : (hfl list * string * hfl list) list) =
+
+    pp_path_deps1 path |> P.dbg "Path under consideration";
+    let org_formula = List.map (fun (a,_,_) -> List.hd a) path |> H.mk_ands in
+    let test_formula = List.map (fun (_,b,c) -> U.implode_pred b c) path |> H.mk_ands in
+    P.pp_formula test_formula |> P.dbg "Formula to be tested";
+
+    match get_times_of_unfold org_formula test_formula with
+      [] -> None
+    | pred_times ->
+       Some (pred_times, path)
+  in
+
+  List.fold_left (fun acc path  ->
+      match get_times_of_unfold_from_path path with
+        None -> acc
+      | Some times_path -> times_path::acc
+    ) [] possible_paths
+;;
+
+let get_unfold_path1 defs_map (all_deps : (hfl list * string * hfl list) list D.t) f =
+  P.pp_formula f |> P.dbgn "Debugged Formula";
+  
+  let multiply_two (xs : (hfl list * string * hfl list) list) (ys : (hfl list * string * hfl list) list) : (hfl list * string * hfl list) list list =
+    List.map (fun x -> x::ys) xs 
+  in
+
+  let rec multiply all_deps = function
+      [] -> [[]]
+    | x::xs ->
+       let rs : (hfl list * string * hfl list) list list = multiply all_deps xs in
+       (* pp_path_deps x |> P.dbg "x"; *)
+       let rs' = List.map (fun (r:(hfl list * string * hfl list) list) -> multiply_two x r) rs |> List.concat in
+       (* P.pp_list pp_path_deps rs' |> P.dbg "rs'"; *)
+       rs' 
+  in
+
+  let update_path param by ((path, last_pred, last_args) : (hfl list * string * hfl list)) =
+    let to_be = List.map (function H.Var s -> s | _ -> raise Err) param in
+    let path' = List.map (fun node ->
+                    let (pn, args) = U.explode_pred node in
+                    P.pp_list P.pp_formula args |> P.dbg "args(before)";
+                    let args' = substitute_args to_be by args in
+                    P.pp_list P.pp_formula args' |> P.dbg "args(after)";
+                    U.implode_pred pn args'
+                  ) path in
+    let last_args' = substitute_args to_be by last_args in
+    (path', last_pred, last_args')
+  in
+  
+  let get_probable_set (all_deps : (hfl list * string * hfl list) list D.t) conj =
+    let preds = get_predicate_set conj |> List.map U.explode_pred in
+    let pred_set = List.map fst preds in
+    let all_paths_seperated : (hfl list * string * hfl list) list list =
+      List.map (fun (p, args) ->
+          P.dbg "Probable set for " p;
+          let all_paths = D.find p all_deps in
+          let params = (D.find p defs_map).H.args |> List.map H.mk_var in
+          let possible_paths = List.filter (fun (_, p', _) -> List.mem p' pred_set) all_paths in
+          P.pp_list P.pp_formula args |> P.dbg "args";
+          let possible_paths' = List.map (update_path params args) possible_paths in
+          possible_paths'
+        ) preds in
+    let multiplied_set : (hfl list * string * hfl list) list list = multiply all_deps all_paths_seperated in
+    
+    let paths = List.filter (fun (xs : (hfl list * string * hfl list) list) ->
+                    let ps = List.map (fun (_,a,_) -> a) xs in
+                    List.for_all (fun p -> List.mem p ps) pred_set
+                  ) multiplied_set in
+
+    paths
+  in
+  
+  let conjuncts = U.get_conjuncts f in
+  P.pp_list P.pp_formula conjuncts |> P.dbg "All Conjuncts";
+
+  let conjuncts_set = List.map (fun c -> (c, get_probable_set all_deps c)) conjuncts in
+  
+  P.pp_list (fun (f, (a : (hfl list * string * hfl list) list list)) -> P.pp_formula f ^ "-> { " ^ (P.pp_list ~sep:" ; " pp_path_deps1 a) ^ " }\n"
+    ) conjuncts_set |> P.dbgn "Probable Set 1";
+
+  let conjuncts_set' = List.fold_left (fun acc (f, paths)  ->
+                           (f, get_times_of_unfold_from_paths paths)::acc
+                         ) [] conjuncts_set in
+
+  let conjuncts_set'' = List.map (fun (f, pos_sets) ->
+                            let pos_sets' = 
+                              List.filter (fun (a, b) ->
+                                  if List.for_all (fun ((pred,_), i) ->
+                                         let (c,_,_) = List.find (fun (c,_,_) -> (List.hd c |> U.explode_pred |> fst) = pred) b in
+                                         List.length c = 1 || i <= 1) a then
+                                    true
+                                  else
+                                    let sum = List.fold_left (fun acc (_,i) -> acc + i) 0 a in
+                                    if sum = 0 then
+                                      false
+                                    else
+                                      true
+                                ) pos_sets
+                            in
+                            (f, pos_sets')
+                          ) conjuncts_set' in
+  P.pp_list
+    (fun (f, (a : (((string * hfl list) * int) list * (hfl list * string * hfl list) list) list)) -> P.pp_formula f ^ "-> { " ^ (P.pp_list ~sep:" ; " pp_path_deps2 a) ^ " }\n"
+    ) conjuncts_set'' |> P.dbgn "Probable Set 2";
+  conjuncts_set''
+;;
+
+let graphed_unfold_fold1 transformer goal defs_map f =
+  let deps : hfl list D.t =
+    D.fold (fun v f acc ->
+        let preds = get_predicate_set f.H.body (* |> List.sort_uniq H.compare_raw_hflz *) in
+        D.add v preds acc) defs_map D.empty
+  in
+  let keys = D.bindings deps |> List.map fst in
+  let all_deps : (hfl list * string * hfl list) list D.t =
+    List.fold_left (fun all_deps key ->
+        let args = (D.find key defs_map).H.args |> List.map H.mk_var in
+        let pred_call = U.implode_pred key args in
+        let tree_dep = build_tree_deps1 [pred_call] [key] defs_map deps args key in
+        D.add key tree_dep all_deps 
+      ) D.empty keys
+  in
+  D.fold (fun k (deps: (hfl list * string * hfl list) list) (acc : string) ->
+      acc ^ ";\n" ^ k ^ " -> " ^ (pp_path_deps1 deps))
+    all_deps "" |> P.dbg "Tree Deps";
+
+  let unfold_paths : (hfl * (((string * hfl list) * int) list * (hfl list * string * hfl list) list) list) list = get_unfold_path1 defs_map all_deps f in
+
+  let r = unfold_fold_along_paths goal transformer defs_map unfold_paths f in
+(* bf_unfold_fold all_deps transformer goal defs_map f *)
+  r
+;;
+
+(*
+let graphed_unfold_fold transformer goal defs_map f =
+  let deps : (string * hfl list) list D.t =
+    D.fold (fun v f acc ->
+        let preds = get_predicate_set f.H.body (* |> List.sort_uniq H.compare_raw_hflz *) in
+        let pred_names_args = List.map (fun p -> explode_pred p) preds in
+        D.add v pred_names_args acc) defs_map D.empty
+  in
+  let keys = D.bindings deps |> List.map fst in
+  let all_deps : (int list * string * hfl list) list D.t =
+    List.fold_left (fun all_deps key ->
+        let args = (D.find key defs_map).H.args |> List.map H.mk_var in
+        let tree_dep = build_tree_deps [] [key] defs_map deps args key in
+        D.add key tree_dep all_deps 
+      ) D.empty keys
+  in
+  D.fold (fun k (deps: (int list * string * hfl list) list) (acc : string) ->
+      acc ^ ";\n" ^ k ^ " -> " ^ (pp_path_deps deps))
+    all_deps "" |> P.dbg "Tree Deps";
+
+  analyze_bf all_deps transformer goal defs_map f;
+(* bf_unfold_fold all_deps transformer goal defs_map f *)
+  ()
+;;
+ *)
 
 let solve_conflict f defs_map pred_args_body =
   List.map (fun (a,b,c,_) -> (a,b,c)) pred_args_body, defs_map, f
@@ -919,93 +1503,42 @@ let solve_conflict f defs_map pred_args_body =
   in
   resolve 0 f [] defs_map pred_args_body *)
 ;;
-  
 
-let controlled_unfold_fold transformer goal defs_map' f' =
-  
-  let are_all_pred_same_to =
-    let is_pred_same pred_name (pr,_) = pr = pred_name in
-    let are_pred_same_to (pred_name,_,pred'_args') =
-      List.for_all (is_pred_same pred_name) pred'_args'
-    in
-    List.for_all are_pred_same_to
-  in
-  
-  print_endline "----------";
-  P.pp_formula f' |> P.dbg "The Formula";
-  let pred_calls = get_predicates f' in   
+let guess_based_unfold_fold transformer goal defs_map f =
+  print_endline "----- GUESSED UNFOLD >> FOLD -----";
+  let f' = graphed_unfold_fold1 transformer goal defs_map f in
+  match f' with
+    None -> None
+  | Some f'' ->
+     let newpred = mk_rule goal.var goal.H.args goal.fix f'' in
+     P.pp_rule newpred |> P.dbg "RULE()";
+     Some [newpred]
+;;
+    
+let controlled_unfold_fold transformer goal defs_map f =
+
+  print_endline "----- CONTROLLED UNFOLD >> FOLD -----";
+  P.pp_formula f |> P.dbg "The Original Formula";
+  let pred_calls = get_predicates f in
+ 
   P.pp_list P.pp_formula pred_calls |> P.dbg "Preds";
+  let target_formula = List.map (exec_unfold defs_map) pred_calls |> H.mk_ands in
+  
+  P.pp_formula f |> P.dbg "The Unfolded Formula";
 
-  if List.length pred_calls < 2 then
+  (* if List.length pred_calls < 2 then
         begin
           print_endline "Old School Method (Less than 2 predicate calls)";
           unfold_fold transformer goal defs_map' f'
         end
-      else
+      else *)
   begin
-    let pred_args_body' = List.map (exec_unfold_ext defs_map') pred_calls in
-    let pred_args_body, defs_map, f = solve_conflict f' defs_map' pred_args_body' in
-    P.pp_formula f |> P.dbg "The Formula (resolved)";
-    let pred_args_pred'args' = List.map (fun (pred_name, args, body) ->
-                                   let pred_calls = get_predicates body in
-                                   let pred_args' = List.map explode_pred pred_calls in
-                                   (pred_name, args, pred_args')
-                                 ) pred_args_body in
-    if are_all_pred_same_to pred_args_pred'args' then
-      let all_ms_constraints = List.mapi (fun i (pred_name, args, pred_args') ->
-                                   let args' = snd (List.hd pred_args') in
-                                   let args_args' = List.combine args args' in
-                                   let deltas = List.map (fun (arg, arg') -> AP.normalize (H.Op (Arith.Sub, [arg';arg]))) args_args' in
-                                   let args_args'_deltas = List.combine args_args' deltas in
-                                   let multiplier = (pred_name ^ (string_of_int i)) in
-                                   
-                                   let multiplied_deltas = List.fold_left (fun acc ((arg, arg'), delta) ->
-                                                               
-                                                               match delta with
-                                                                 H.Int _ ->
-                                                                  (* P.pp_formula delta |> P.dbg "delta"; *)
-                                                                  let t = H.Op (Arith.Mult, [H.Var multiplier; delta]) |> AP.normalize in
-                                                                  (* P.pp_formula t |> P.dbg "t"; *)
-                                                                  acc @ [(arg, arg', t)]
-                                                               | _ -> acc
-                                                             ) [] args_args'_deltas in
-                                   let constraints = List.map (fun (a, _, d) ->
-                                                         let aa = auto_rename a in
-                                                         let a'_md = (H.Op (Arith.Add, [a;d])) |> AP.normalize in
-                                                         H.Pred (Formula.Eq, [aa;a'_md])
-                                                       ) multiplied_deltas in
-                                   ((pred_name, multiplier), constraints)
-                                 ) pred_args_pred'args' in
-      let pred_ms, all_constraints = List.split all_ms_constraints in
-      let ms = List.map snd pred_ms in
-      let gen_cons = H.Pred (Formula.Gt, [H.Op (Arith.Add, List.map H.mk_var ms); H.Int 0]) in
-      match List.concat all_constraints with
+    let goal_preds = get_predicate_set f |> List.map U.explode_pred |> List.map fst in
+    match get_times_of_unfold f target_formula with
         [] -> unfold_fold transformer goal defs_map f
-      | all ->
+      | pred_times' ->
          try
-           P.pp_list P.pp_formula all |> P.dbg "All";
-           let all' = U.reduce_eq ms all in
-           P.pp_list P.pp_formula all' |> P.dbg "All'";
-           let c = List.fold_left H.mk_and gen_cons all' in
-           let model = Z.solve_model_s ms gen_cons all' in
-           
-           List.iter (fun constraints ->
-               P.pp_list P.pp_formula constraints |> P.dbg ""
-             ) all_constraints;
-           
-           List.iter (fun (id, v) -> print_endline (id ^ ": " ^ (string_of_int v))) model;
-           let pred_times = List.map (fun (pred_name, m) ->
-                                let (_, v) =
-                                  try
-                                    List.find (fun (id, _) -> id = m) model
-                                  with
-                                    Not_found ->
-                                    print_endline (m ^ " is not found in the model");
-                                    raise Not_found
-                                in
-                                (pred_name, v)
-                              ) pred_ms in
-           
+           let pred_times = List.map (fun ((d,_),b) -> (d,b)) pred_times' in
            let rec unfold_times f = function
                [] -> f
              | (_, 0)::xs ->
@@ -1045,50 +1578,16 @@ let controlled_unfold_fold transformer goal defs_map' f' =
             raise NotFoldable
          | Z.NoModel ->
             print_endline "Old School Method (No Model)";
-            guessed_unfold_fold transformer goal defs_map f
-    else
-      begin
-        print_endline "Old School Method (Calls other predicate)";
-        guessed_unfold_fold transformer goal defs_map f
-      end
+            guess_based_unfold_fold transformer goal defs_map f
+                                    (* guessed_unfold_fold transformer goal defs_map goal_preds f *)
   end 
 ;;
-(*
-let get_removable_indices (rules : H.hes_rule list) =
-  
-;;
 
-let get_concise_rules rules indices =
-  rules
-;;
-
-let adjust_call f = f
-;;
- *)
 let concise (r, f) _ =
-  (*
-  match r with
-    None -> (r, f)
-  | Some rules ->
-     P.pp_list P.pp_rule rules |> P.dbg "rules";
-     P.pp_formula f |> P.dbg "formula";
-     let gamma = H.to_typed (rules, env) |> snd in
-     
-     let r : (Id.Key.t * Type.abstraction_ty) list = IdMap.to_alist gamma in
-     let r1 = List.map fst r in
-     let r2 = List.map (Id.Key.sexp_of_t) r1 in
-     
-     (* |> List.map Type.to_simple in *)
-     
-     (*
-     let removable_indices = get_removable_indices rules in
-     let rules' = get_concise_rules rules removable_indices in
-     let f' = adjust_call f in *)
-     (Some rules, f) *)
   (r, f)
 ;;
 
-let uf = controlled_unfold_fold;;
+let uf = guess_based_unfold_fold (* controlled_unfold_fold *);;
 (* let uf = unfold_fold ;; *)
 
 let rec exists_elim goal defs_map env f =
@@ -1165,7 +1664,7 @@ and ex_dist2 qvs f =
     | H.Or (f1, f2) -> H.Or (aux s f1, aux s f2)
     | H.And _ as f ->
        let (f', qvs') = f |> use_constraint [s] in
-       let fs = f' |> cnf_of_formula |> get_conjuncts in (** Optimization Point  *)
+       let fs = f' |> cnf_of_formula |> U.get_conjuncts in (** Optimization Point  *)
        let is_ins, not_ins = List.partition (is_in s) fs in
        let is_ins'' =
          if List.length qvs' = 0 then
@@ -1202,17 +1701,6 @@ let rec is_non_pred = function
   | _ -> true
 ;;
 
-let rec get_pred_name = function
-    H.Var s -> s
-  | H.App (f, _) -> get_pred_name f
-  | _ -> raise (StrangeSituation "Not a predicate")
-;;
-
-let get_pred defs_map f =
-  let pred_name = get_pred_name f in
-  let pred = try D.find pred_name defs_map with Not_found -> print_endline ("Not found predicate " ^ pred_name); raise Not_found in
-  pred;;
-
 let get_fix_op defs_map f =
   let pred = get_pred defs_map f in
   pred.H.fix
@@ -1237,10 +1725,10 @@ let rec subset xs ys =
 ;;
 
 let reduce_conj f =
-  let fs = get_conjuncts f in
+  let fs = U.get_conjuncts f in
   let fn x y =
-    let dx = get_disjuncts x in
-    let dy = get_disjuncts y in
+    let dx = U.get_disjuncts x in
+    let dy = U.get_disjuncts y in
     not (subset dx dy)
   in
   let fs' = reduce fn [] fs in
@@ -1250,10 +1738,10 @@ let reduce_conj f =
 ;;
 
 let reduce_disj f =
-  let fs = get_disjuncts f in
+  let fs = U.get_disjuncts f in
   let fn x y =
-    let dx = get_conjuncts x in
-    let dy = get_conjuncts y in
+    let dx = U.get_conjuncts x in
+    let dy = U.get_conjuncts y in
     not (subset dx dy)
   in
   let fs' = reduce fn [] fs in
@@ -1289,7 +1777,7 @@ let rec unfold_fold_exists goal defs_map env = function
 
 let rec transform_disjunction goal defs_map env f =
   P.pp_formula f |> P.dbg "f";
-  let fs = get_disjuncts f in
+  let fs = U.get_disjuncts f in
   let (preds, fs') = List.fold_left
               (fun (acc, fs) f ->
                 let (r, f) = transform goal defs_map env f in
@@ -1355,7 +1843,7 @@ let rec transform_disjunction goal defs_map env f =
   (concat_option new_preds preds, f')
     
 and transform_conjunction goal defs_map env f =
-  let fs = get_conjuncts f in
+  let fs = U.get_conjuncts f in
   let (preds, fs') = List.fold_left
               (fun (acc, fs) f ->
                 let (r, f) = transform goal defs_map env f in

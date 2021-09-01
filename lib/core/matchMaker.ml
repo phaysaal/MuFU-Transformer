@@ -415,12 +415,38 @@ let get_arg p p_a =
   |> snd
 ;;
 
-let rec find_matching fix _X (params : string list) f f' =
-  (* P.pp_formula f' |> P.dbgn "Find Matching";
+let is_conjunctive = function
+    H.And _ -> true
+  | _ -> false
+
+let is_disjunctive = function
+    H.Or _ -> true
+  | _ -> false
+
+let rec get_conjuncts = function
+    H.And (f1, f2) ->
+     let f1' = get_conjuncts f1 in
+     let f2' = get_conjuncts f2 in
+     f1' @ f2'
+  | f ->
+     [f]
+;;
+
+let rec get_disjuncts = function
+    H.Or (f1, f2) ->
+     let f1' = get_disjuncts f1 in
+     let f2' = get_disjuncts f2 in
+     f1' @ f2'
+  | f ->
+     [f]
+;;
+
+let rec find_matching_direct fix _X (params : string list) f f' =
+  P.pp_formula f' |> P.dbgn "Find Matching";
   P.pp_formula f |> P.dbg "to ";
-   *)
   
-  let fn = find_matching fix _X params f in
+  
+  let fn = find_matching_direct fix _X params f in
   
   let rec aux = function
       H.Or (f1, f2) ->
@@ -446,6 +472,84 @@ let rec find_matching fix _X (params : string list) f f' =
   | None ->
      aux f'
 ;;
+
+exception ExplotionNotPossible of string
+exception NotMatched
+        
+let explode_pred f =
+  let rec aux acc = function
+      H.App (f1, f2) ->
+       aux (f2::acc) f1
+    | H.Var s -> s, acc
+    | f ->
+       P.pp_formula f |> P.dbg "ERROR";
+       raise (ExplotionNotPossible "Unsupported Predicate Naming")
+  in
+  let r = aux [] f in
+  r
+;;
+
+let rec find_matching_permutations xs ys : (H.raw_hflz list * H.raw_hflz list) =
+  match xs with
+    [] -> ([], ys)
+  | x::xs' ->
+     match x with
+       H.App _ ->
+        begin
+          let (pred, _) = explode_pred x in
+          let y_matched, y_non_matched = List.partition (fun p -> (explode_pred p |> fst) = pred) ys in
+          match y_matched with
+            [] -> raise NotMatched 
+          | y::ys' ->
+             let (m, u) = find_matching_permutations xs' (ys'@y_non_matched) in
+             (y::m, u)
+        end
+     | _ ->
+        raise NotMatched
+;;
+
+let find_matching fix _X (params : string list) f f' =
+  if is_conjunctive f then
+    try
+      let conjuncts_f = get_conjuncts f in
+      let conjuncts_f' = get_conjuncts f' in
+      let pred_f, non_pred_f = List.partition (function H.App _ -> true | _ -> false) conjuncts_f in
+      let pred_f', non_pred_f' = List.partition (function H.App _ -> true | _ -> false) conjuncts_f' in
+      let (matched, unmatched) = find_matching_permutations pred_f pred_f' in
+      let f'' = H.mk_ors matched in
+      let f''' = H.mk_ors pred_f in
+
+      match find_matching_direct fix _X params f''' f'' with
+        false, _ -> print_endline "No matching"; false, f'
+      | true, r -> print_endline "Matching";
+                   let a = H.mk_ors (non_pred_f' @ unmatched) in
+                   true, (H.mk_or a r)
+    with
+      NotMatched -> false, f'
+    
+  else if is_disjunctive f then
+    try
+      let disjuncts_f = get_disjuncts f in
+      let disjuncts_f' = get_disjuncts f' in
+      let pred_f, non_pred_f = List.partition (function H.App _ -> true | _ -> false) disjuncts_f in
+      let pred_f', non_pred_f' = List.partition (function H.App _ -> true | _ -> false) disjuncts_f' in
+    
+      let (matched, unmatched) = find_matching_permutations pred_f pred_f' in
+      let f'' = H.mk_ors matched in
+      let f''' = H.mk_ors pred_f in
+
+      match find_matching_direct fix _X params f''' f'' with
+        false, _ -> print_endline "No matching"; false, f'
+      | true, r -> print_endline "Matching";
+                   let a = H.mk_ors (non_pred_f' @ unmatched) in
+                   true, (H.mk_or a r)
+    with
+      NotMatched -> false, f'
+    
+  else
+    find_matching_direct fix _X params f f'
+;;
+
     
 let reduce_eq exc fs =
   let rec reduce_eq exc acc = function
