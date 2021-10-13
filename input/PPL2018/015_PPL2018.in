@@ -3,7 +3,7 @@
 /*
 	le (x,y) ~ true, le (y,z) ~ true -> le (x,z) ~ true
 */
-G y z =v Nleq z 0 \/ Leq z y.
+G x y z =v (Nleq x y \/ Nleq y z) \/ Leq x z.	
 
 Eq x y =μ (x=0 /\ y=0) \/ (x>0 /\ y>0 /\ Eq (x-1) (y-1)).
 Neq x y =v (x<>0 \/ y<>0) /\ (x<0 \/ x=0 \/ y<0 \/ y=0 \/ Neq (x-1) (y-1)).

@@ -51,6 +51,7 @@ let rec arith_to_z3 ctx bounds = function
           let b = List.tl fs' |> List.hd in
           Arithmetic.mk_div ctx a b
        | Arith.Mod ->
+          (* Arithmetic.mk_mod ctx a b *)
           raise (UnsupportedFormula "Mod")
      end
   | e ->
@@ -280,7 +281,15 @@ let solve_model f =
                            None -> model
                          | Some v ->
                             if Expr.is_numeral v then
-                              (FuncDecl.get_name d |> Symbol.get_string, Expr.to_string v |> int_of_string)::model
+                              
+                              let r1 = (FuncDecl.get_name d |> Symbol.get_string ) in
+                              let r2 = Expr.to_string v in
+                              try
+                                let r3 = r2 |> int_of_string in
+                                (r1,r3)::model
+                              with
+                                e -> print_endline (r1 ^ "->" ^ r2); 
+                                   raise e
                             else
                               model
                        ) [] ds

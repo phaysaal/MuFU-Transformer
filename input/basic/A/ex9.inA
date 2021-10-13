@@ -1,0 +1,4 @@
+%HES
+G  =v ∀ r.∀ z.∀ x.(Dplus (2*x) z r \/ ∃s.(Plus x z s /\ r=(s+x))).
+Dplus x y r =v ((y<>0 \/ r<>x) /\ (y=0 \/ Dplus x (y-1) (r-1))).
+Plus x y r =μ ((y=0 /\ r=x) \/ (y<>0 /\ Plus x (y-1) (r-1))).

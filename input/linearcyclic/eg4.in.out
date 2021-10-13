@@ -1,0 +1,5 @@
+%HES
+G  =v ∀ z.∀ y.∀ x.FIXPRED1 x y z.
+FIXPRED1 x y z =μ ((0 <> 0) \/ FIXPRED1 (x+(-2)) (y+(-1)) (z+(-2))).
+Sum1 p q r =μ Sum2 (q-1) p (r-1).
+Sum2 s t u =μ Sum1 s t u.

@@ -1,0 +1,7 @@
+%HES
+G  =v ∀ x.FIXPRED1 x.
+FIXPRED1 x =μ ((B (x-1) \/ B ((x-3)-1)) \/ FIXPRED1 (x+(-5))).
+A x =μ (B (x-1) \/ C (x-2)).
+B x =μ D (x-1).
+C x =μ A (x-3).
+D x =μ B (x-1).

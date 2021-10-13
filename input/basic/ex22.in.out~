@@ -1,0 +1,4 @@
+%HES
+G  =v ∀ y.∀ x.(y<0 \/ FIXPRED1 x y).
+FIXPRED1 x y =μ (y=0 \/ (y<>0 /\ FIXPRED1 x (y+(-1)))).
+Mult x y r =μ ((y=0 /\ r=0) \/ (y<>0 /\ Mult x (y-1) (r-x))).

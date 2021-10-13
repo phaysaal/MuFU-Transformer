@@ -1,0 +1,32 @@
+%HES
+
+G x y z r =v Dplus x (y + z) r \/ (z > 0 \/ ∃s.Plus x y s).
+Dplus x y r =v (y <> 0 \/ r <> x) /\ (y = 0 \/ Dplus x (y - 1) (r -1)).
+Plus a b c =μ (b = 0 /\ c = a) \/ (b <> 0 /\ Plus a (b - 1) (c - 1)).
+
+/*
+(declare-fun G (Int Int Int Int) Bool)
+(declare-fun Dplus (Int Int Int) Bool)
+(declare-fun Plus (Int Int Int) Bool)
+(declare-fun mu () Bool)
+(declare-fun nu () Bool)
+
+(assert (forall ((x Int) (y Int) (z Int) (r Int)) (G x y z r)))
+
+(assert (forall ((x Int) (y Int) (z Int) (r Int))
+  (= (G x y z r) (or
+    (Dplus x (+ y z) r) (> z 0)
+    (exists ((s Int)) (Plus x y s))))))
+
+(assert (and nu (forall ((x Int) (y Int) (r Int))
+  (= (Dplus x y r) (and
+    (or (not (= y 0)) (not (= r x)))
+    (or (= y 0) (Dplus x (- y 1) (- r 1))))))))
+
+(assert (and mu (forall ((x Int) (y Int) (r Int))
+  (= (Plus x y r) (or
+    (and (= y 0) (= r x))
+    (and (not (= y 0)) (Plus x (- y 1) (- r 1))))))))
+
+(check-sat)
+*/

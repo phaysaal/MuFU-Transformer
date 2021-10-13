@@ -1,0 +1,4 @@
+%HES
+G  =v ∀ z.∀ x.(x>z \/ FIXPRED1 x z).
+FIXPRED1 x z =μ (z=x \/ FIXPRED1 x (z+(-1))).
+Plus x y r =μ ((y=0 /\ r=x) \/ Plus x (y-1) (r-1)).

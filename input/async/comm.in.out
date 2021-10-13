@@ -1,0 +1,3 @@
+%HES
+Comm  =v ∀ t.∀ s.∀ y.∀ x.(s=t \/ FIXPRED1 x y s t).
+DMult x y r =v ((y<>0 \/ r<>0) /\ (y=0 \/ DMult x (y-1) (r-x))).

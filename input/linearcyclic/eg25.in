@@ -1,0 +1,6 @@
+%HES
+
+G x y z r =v DMult x (y+z) r \/ Mult2 x y z r.
+Mult x y r =μ (y=0 /\ r=0) \/ (y>0 /\ Mult x (y-1) (r-x)).
+Mult2 p q o n =μ (q>0 /\ o>0 /\ Mult2 p (q-1) (o-1) (n-2*p)).
+DMult a b c =v (b<>0 \/ r<>0) /\ (b=0 \/ b<0 \/ DMult a (b-1) (c-a)).

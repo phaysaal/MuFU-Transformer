@@ -1,0 +1,107 @@
+%HES
+
+G x y z r =v Dplus (x+y) z r \/ ∃s1.∃s2.(Plus x z s1) /\ (Plus y z s2) /\ r+z=s1+s2.
+Dplus x y r =v (y<>0 \/ r<>x) /\ (y=0 \/ Dplus x (y-1) (r-1)).
+Plus x y r =μ (y = 0 /\ r = x) \/ (y <> 0 /\ Plus x (y - 1) (r - 1)).
+
+/*
+(declare-fun G (Int Int Int Int) Bool)
+(declare-fun Dplus (Int Int Int) Bool)
+(declare-fun Plus (Int Int Int) Bool)
+(declare-fun mu () Bool)
+(declare-fun nu () Bool)
+
+(assert (forall ((x Int) (y Int) (z Int) (r Int)) (G x y z r)))
+
+(assert (forall ((x Int) (y Int) (z Int) (r Int))
+  (= (G x y z r) (or
+    (Dplus (+ x y) z r)
+    (exists ((s1 Int) (s2 Int)) (and (Plus x z s1) (Plus y z s2) (= (+ r z) (+ s1 s2))))))))
+
+(assert (and nu (forall ((x Int) (y Int) (r Int))
+  (= (Dplus x y r) (and
+    (or (not (= y 0)) (not (= r x)))
+    (or (= y 0) (Dplus x (- y 1) (- r 1))))))))
+
+(assert (and mu (forall ((x Int) (y Int) (r Int))
+  (= (Plus x y r) (or
+    (and (= y 0) (= r x))
+    (and (not (= y 0)) (Plus x (- y 1) (- r 1))))))))
+
+(check-sat)
+
+*/
+
+/*
+
+Plus x y r = (y=0 /\ r=x) \/ (y != 0 /\ Plus x (y-1) (r-1))
+Dplus x y r = (y!=0 \/ r!=x) /\ (y=0 \/ Dplus x (y-1) (r-1))
+--------------------------------------------------------------
+
+   ∃s1. ∃s2. Plus x z s1 /\ Plus y z s2 /\ r+z=s1+s2
+=> ∃s1. ∃s2. Plus x z s1 /\ Plus y z s2 /\ s2=r+z-s1
+
+=> ∃s1. Plus x z s1 /\ Plus y z (r+z-s1)                             // Next, Unfold
+=> ∃s1. ((z=0 /\ s1=x) \/ (z<>0 /\ Plus x (z-1) (s1-1))) /\ ((z=0 /\ (r+z-s1)=y) \/ (z<>0 /\ Plus y (z-1) ((r+z-s1)-1)))   // Next, DNF
+=> ∃s1. ((z=0 /\ s1=x) \/ (z<>0 /\ Plus x (z-1) (s1-1))) /\ (z=0 /\ (r+z-s1)=y) \/ ((z=0 /\ s1=x) \/ (z<>0 /\ Plus x (z-1) (s1-1))) /\ (z<>0 /\ Plus y (z-1) ((r+z-s1)-1))
+=> ∃s1. ((z=0 /\ s1=x) /\ (z=0 /\ (r+z-s1)=y)) \/ 
+        ((z<>0 /\ Plus x (z-1) (s1-1)) /\ (z=0 /\ (r+z-s1)=y)) \/ 
+        ((z=0 /\ s1=x) /\ (z != 0 /\ Plus y (z-1) ((r+z-s1)-1))) \/ 
+        ((z<>0 /\ Plus x (z-1) (s1-1)) /\ (z<>0 /\ Plus y (z-1) ((r+z-s1)-1)))    // Next, dist-exists
+
+=> ∃s1.((z=0 /\ s1=x) /\ (z=0 /\ (r+z-s1)=y))   \/   ∃s1.((z != 0 /\ Plus x (z-1) (s1-1)) /\ (z=0 /\ (r+z-s1)=y))  \/   ∃s1.((z=0 /\ s1=x) /\ (z != 0 /\ Plus y (z-1) ((r+z-s1)-1))) \/ ∃s1.((z != 0 /\ Plus x (z-1) (s1-1)) /\ (z != 0 /\ Plus y (z-1) ((r+z-s1)-1)))   
+=> z=0 \/ ∃s1.(z != 0 /\ Plus x (z-1) (s1-1) /\ Plus y (z-1) ((r+z-s1)-1))    // Next, dist-exists
+=> z=0 \/ (z != 0 /\ ∃s1.(Plus x (z-1) (s1-1) /\ Plus y (z-1) ((r+z-s1)-1)))    // Next, dist-exists
+
+x|x   z|z-1   s1|s1-1      y|y   z|z-1     r+z-s1=r+(z-1)-(s1-1)=r+z-1-s1+1=r+z-s1|r+z-s1-1     r|r+z-s1-1-z+s1=r-1
+=> z=0 \/ (z != 0 /\ 
+
+--------------------------------------------------------------
+
+G x y z r = Dplus (x+y) z r \/ ∃s1. ∃s2. Plus x z s1 /\ Plus y z s2 /\ r+z=s1+s2
+----------------
+G x y z r = H1 x y z r
+H1 x y z r = Dplus (x+y) z r \/ H2 x y z r
+H2 x y z r = ∃s1. ∃s2. Plus x z s1 /\ Plus y z s2 /\ r+z=s1+s2
+H2 x y z r = ∃s1. Plus x z s1 /\ Plus y z (r+z-s1)
+
+H2 x y z r = z=0 \/ (z != 0 /\ ∃s1. Plus x (z-1) (s1-1) /\ Plus y (z-1) ((r-1)+(z-1)-(s1-1)))
+H2 x y z r = z=0 \/ (z != 0 /\ H2 x y (z-1) (r-1))
+
+-----------------
+H1 x y z r = Dplus (x+y) z r \/ H2 x y z r
+=> (z!=0 \/ r!=(x+y)) /\ (z=0 \/ Dplus (x+y) (z-1) (r-1))   \/   z=0 \/ (z != 0 /\ H2 x y (z-1) (r-1))  
+=> (z!=0 \/ r!=(x+y)) /\ (z=0 \/ Dplus (x+y) (z-1) (r-1))   \/   ((z=0 \/ z != 0) /\ (z=0 \/ H2 x y (z-1) (r-1))) 
+=> ((z!=0 \/ r!=(x+y)) \/ (z=0 \/ z != 0)) /\ ((z=0 \/ Dplus (x+y) (z-1) (r-1)) \/ (z=0 \/ z != 0)) /\ ((z!=0 \/ r!=(x+y)) \/ (z=0 \/ H2 x y (z-1) (r-1))) /\ ((z=0 \/ Dplus (x+y) (z-1) (r-1)) \/ (z=0 \/ H2 x y (z-1) (r-1)))
+=> z=0 \/ Dplus (x+y) (z-1) (r-1) \/ H2 x y (z-1) (r-1)
+=> z=0 \/ H1 x y (z-1) (r-1)
+
+
+f: 
+(Plus x z s1 /\ Plus y z (r+(z-s1)))
+
+Unfolded: (((z=0 /\ s1=x) \/ (z<>0 /\ Plus x (z-1) (s1-1))) /\ ((z=0 /\ (r+(z-s1))=y) \/ (z<>0 /\ Plus y (z-1) ((r+(z-s1))-1))))
+DNF: ((((z=0 /\ s1=x) /\ (z=0 /\ (r+(z-s1))=y)) \/ 
+     ((z=0 /\ s1=x) /\ (z<>0 /\ Plus y (z-1) ((r+(z-s1))-1)))) \/ 
+     (((z<>0 /\ Plus x (z-1) (s1-1)) /\ (z=0 /\ (r+(z-s1))=y)) \/ 
+     ((z<>0 /\ Plus x (z-1) (s1-1)) /\ (z<>0 /\ Plus y (z-1) ((r+(z-s1))-1)))))
+
+EX_dist: (((z=0 /\ ∃s1.(s1=x /\ y=(r+(z-s1)))) \/ 
+         ((z=0 /\ z<>0) /\ ∃s1.(s1=x /\ Plus y (z-1) ((r+(z-s1))-1)))) \/ 
+         (((z=0 /\ z<>0) /\ ∃s1.(y=(r+(z-s1)) /\ Plus x (z-1) (s1-1))) \/ 
+         (z<>0 /\ ∃s1.(Plus x (z-1) (s1-1) /\ Plus y (z-1) ((r+(z-s1))-1)))))
+
+EX_dist: (((z=0 /\ ∃s1.0=0) \/ 
+         ((z=0 /\ z<>0) /\ ∃s1.Plus y (z-1) ((r+(z-s1))-1))) \/ 
+         (((z=0 /\ z<>0) /\ ∃s1.Plus x (z-1) (s1-1)) \/ 
+         (z<>0 /\ ∃s1.(Plus x (z-1) (s1-1) /\ Plus y (z-1) ((r+(z-s1))-1)))))
+
+EX_dist: z=0 \/ 
+         ((z=0 /\ z<>0) /\ ∃s1.Plus y (z-1) ((r+(z-s1))-1)) \/ 
+         ((z=0 /\ z<>0) /\ ∃s1.Plus x (z-1) (s1-1)) \/ 
+         (z<>0 /\ ∃s1.(Plus x (z-1) (s1-1) /\ Plus y (z-1) ((r+(z-s1))-1)))
+
+unsat_elimination: (z=0 \/ (z<>0 /\ ∃s1.(Plus x (z-1) (s1-1) /\ Plus y (z-1) ((r+(z-s1))-1))))
+
+========================================================================================================================================
+*/

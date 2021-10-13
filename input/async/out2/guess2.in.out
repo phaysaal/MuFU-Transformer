@@ -1,0 +1,11 @@
+%HES
+G  =v ∀ z.∀ y.∀ x.FIXPRED1 x y z.
+FIXPRED1 x y z =v FIXPRED1 x y z.
+A x y z =v (C x y z /\ H x y z).
+C x y z =v (D x y z \/ E x y z).
+D x y z =v E x y z.
+E x y z =v B x y z.
+B x y z =v F x y z.
+F x y z =v A x y z.
+H x y z =v I x y z.
+I x y z =v H x y z.

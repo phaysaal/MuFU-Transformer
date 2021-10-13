@@ -1,0 +1,8 @@
+%HES
+
+/* multiple times of more than one length */
+G x y r =v DMult x (2*y) r \/ Mult2 x y r.
+Mult x y r =μ (y=0 /\ r=0) \/ (y>0 /\ Mult x (y-1) (r-x)).
+Mult2 x y r =μ (y=0 /\ r=0) \/ (y>0 /\ Mult2 x (y-1) (r-2*x)).
+DMult x y r =v (y<>0 \/ r<>0) /\ (y=0 \/ y<0 \/ DMultA x (y-1) (r-x)).
+DMultA x y r =v (y=0 \/ y<0 \/ DMult x y r).

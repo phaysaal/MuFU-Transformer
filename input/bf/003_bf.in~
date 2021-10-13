@@ -1,0 +1,7 @@
+%HES
+
+G x =μ A x \/ C x.
+A x =μ B (x-1) \/ C (x-3).
+B x =μ A (x-2).
+C x =μ D (x-4).
+D x =μ A (x-1).

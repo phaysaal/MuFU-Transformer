@@ -1,0 +1,53 @@
+
+* is /\ or \/
+f is the formula to be unfolded and folded
+DEF is the set of rules or predicate definitions
+
+
+Disjunct/Conjunct Unfold-Fold f DEF
+-----------------------------------
+let b    be a sub-foormula of f where predicate calls do not contain constant argument.
+let g    be a rule with a new name n and b.
+let T    be a the transformation function for formula normalization and simplification
+let f'   be tree_based_unfold_fold T g DEF b
+let ff'  be f' restored with remaining subformula of f
+update g's body to be ff'
+return g
+
+tree_based_unfold_fold T g DEF b
+----------------------------------------------------
+let deps be set of level-1 dependencies (predicate calls in the body) of each predicate
+		= {(name, set of predicate calls) of rule | rule in DEF}
+let Trees be the set of least set of trees for each predicate where each reachable predicates (by subsequent unfolding) are at the nodes of some of the trees. 
+		= {build_tree_deps [<name,params>] [name] PCs DEF deps params| (name, PCs) in deps, <name,params,_> in DEF} 
+let UPs be list of possible unfold paths with number of unfolding times for each path
+		= get_unfold_paths DEF Trees b
+let r be the first unfolding of b along the a path in UPs for which folding is possible
+		= unfold_fold_along_paths g T DEF UPs b
+return r
+
+build_tree_deps TP H PCs DEF deps root_args     (TP:tree path, H:history, PCs: Predicate Calls)
+-----------------------------------------------------------------
+let S be {(TP, pn, args[params := root_args]) | <n, args> in PCs, <pn, params, _> in DEF}
+let nonT be {<TP, pn, a> | <TP, pn, a> in S, pn not in H}
+let R be {build_tree_deps (TP@<pn,a>) (H@n) DEF deps a n | <TP, pn, a> in nonT}
+return (S @ R)
+
+get_unfold_paths DEF Trees b
+---------------------------------------
+For each conjunct C in b
+		let PREDs be the set of predicate calls in C
+		let Trees_ps be the set of set of all tree paths from each pred in PREDs
+				= {trees | <pn, a> in PERDs, <pn, trees> in Trees}
+		let all_paths be the set of all combined paths
+				= Trees_p1 * ... * Trees_pn
+		let candidate_paths be the selected paths where the final destinations must have all the predicate calls in PREDs
+				= {path | path in all_paths, p in PREDs implies p in 'end_nodes_of path', arguments changes are consistent in 'end_nodes_of path'}
+		let unfolding_paths be the set of possible paths with number of unfolding times from candidate_paths
+				= {(path, get_number_of_unfolding_times path C) | path in canddiate_paths}
+
+get_number_of_unfolding_times path C
+--------------------------------------
+Use constraint solving to get unfolding time of the subpaths of path for C
+
+

@@ -1,0 +1,5 @@
+%HES
+G  =v ∀ x.FIXPRED1 x.
+FIXPRED1 x =v ((x<>0 \/ NotEven (x-1)) /\ ((0 <> 0) \/ FIXPRED1 (x+(-1)))).
+NotEven x =v (x<>0 /\ NotOdd (x-1)).
+NotOdd x =v NotEven (x-1).

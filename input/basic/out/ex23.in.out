@@ -1,0 +1,4 @@
+%HES
+G  =v ∀ x.(x<0 \/ FIXPRED1 x).
+FIXPRED1 x =μ (x=0 \/ (x=1 \/ (x<>0 /\ (x<>1 /\ (FIXPRED1 (x+(-2)) /\ FIXPRED1 (x+(-1))))))).
+Fib x r =μ ((x=0 /\ r=0) \/ ((x=1 /\ r=1) \/ (x<>0 /\ (x<>1 /\ ∃s1.∃s2.(Fib (x-1) s1 /\ (Fib (x-2) s2 /\ r=(s1+s2))))))).

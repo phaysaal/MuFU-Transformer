@@ -1,0 +1,5 @@
+%HES
+G  =v ∀ r.∀ a.∀ y.∀ x.FIXPRED1 x y r.
+FIXPRED1 x y r =v (y=0 \/ FIXPRED1 x (y+(-1)) (r+(0-x))).
+NegMult x y r =v ((y<>0 \/ r<>0) /\ (y=0 \/ NegMult x (y-1) (r-x))).
+MultAcc x y a r =μ ((y=0 /\ r=a) \/ (y<>0 /\ MultAcc x (y-1) a (r-x))).

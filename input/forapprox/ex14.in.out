@@ -1,0 +1,6 @@
+%HES
+G  =v ∀ r.∀ z.∀ y.∀ x.(y>0 \/ FIXPRED2 x y z r).
+FIXPRED2 x y z r =v ((r<>0 \/ ((y+z)<>0 \/ FIXPRED1 x z)) /\ ((y+z)=0 \/ FIXPRED2 x (y+(-1)) z (r+(0-x)))).
+FIXPRED1 x z =μ (z=0 \/ (z<>0 /\ FIXPRED1 x (z+(-1)))).
+Dmult x y r =v ((y<>0 \/ r<>0) /\ (y=0 \/ Dmult x (y-1) (r-x))).
+Mult x y r =μ ((y=0 /\ r=0) \/ (y<>0 /\ Mult x (y-1) (r-x))).

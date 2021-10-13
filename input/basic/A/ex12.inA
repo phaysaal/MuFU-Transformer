@@ -1,0 +1,3 @@
+%HES
+G  =v ∀ z.∀ x.(x>z \/ ∃y.Plus x y z).
+Plus x y r =μ ((y=0 /\ r=x) \/ Plus x (y-1) (r-1)).

@@ -1,0 +1,4 @@
+%HES
+G  =v ∀ r.∀ z.∀ x.(Dmult (2*x) z r \/ ∃s.(Mult x z s /\ r=(2*s))).
+Dmult x y r =v ((y<>0 \/ r<>0) /\ (y=0 \/ Dmult x (y-1) (r-x))).
+Mult x y r =μ ((y=0 /\ r=0) \/ (y<>0 /\ Mult x (y-1) (r-x))).

@@ -1,0 +1,32 @@
+
+* is /\ or \/
+f is the formula to be unfolded and folded
+def is the set of rules or predicate definitions
+
+Disjunct/Conjunct Unfold-Fold f DEF
+-----------------------------------
+let f    be 'b * cf' where goal does not contain constant.
+let g    be a rule with a new name n and b.
+let T    be a function composed with normal form, unsat elimination, tautology elimination, etc. for formula simplification
+let f'   be tree_based_unfold_fold T g DEF b
+update g's body to be f'
+return g
+
+
+tree_based_unfold_fold T goal DEF goalbody
+----------------------------------------------------
+let deps be {(name, set of predicate calls) of rule | rule in DEF}
+let keys be set of predicate names
+let all_deps be {build_tree_deps [<name,params>] name predicate_calls def deps params| (name, predicate_calls) in deps, <name,params,_> in DEF} 
+let unfold_paths be get_unfold_paths DEF all_deps goalbody
+let r be unfold_fold_along_paths goal transformer DEF unfold_path goalbody
+
+build_tree_deps TP name predicate_calls DEF deps root_args
+-----------------------------------------------------------------
+let pred_names_indices be {(TP, pred_name, args[params := root_args]) | <pred_name, args> in predicate_calls, <pred_name, params, _> in DEF}
+
+
+
+
+
+

@@ -1,0 +1,4 @@
+%HES
+G  =v ∀ r.∀ z.∀ y.∀ x.(Dmult (x+y) z r \/ ∃s1.∃s2.(Mult x z s1 /\ (Mult y z s2 /\ r=(s1+s2)))).
+Dmult x y r =v ((y<>0 \/ r<>0) /\ (y=0 \/ Dmult x (y-1) (r-x))).
+Mult x y r =μ ((y=0 /\ r=0) \/ (y<>0 /\ Mult x (y-1) (r-x))).

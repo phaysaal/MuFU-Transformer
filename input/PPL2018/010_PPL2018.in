@@ -1,9 +1,9 @@
 %HES
 
 /*
-	plus(x, y) ~ y -> x ~ 0
+	plus(0, y) ~ z -> y ~ z
 */
-G x y z =v (Dplus x y z \/ Neq z y) \/ Eq x 0.
+G y z x =v (Dplus 0 y x \/ Neq x z) \/ Eq y z.
 
 Eq x y =μ (x=0 /\ y=0) \/ (x>0 /\ y>0 /\ Eq (x-1) (y-1)).
 Neq x y =v (x<>0 \/ y<>0) /\ (x<0 \/ x=0 \/ y<0 \/ y=0 \/ Neq (x-1) (y-1)).

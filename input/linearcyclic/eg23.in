@@ -1,0 +1,114 @@
+%HES
+
+G x =v x < 0 \/ M1 x \/ M2 x \/ M3 x.
+M1 x =μ x = 0 \/ M1 (x-1).
+M2 y =μ y = 0 \/ M2 (y-2).
+M3 z =μ z = 0 \/ M3 (z-3).
+
+/*
+(base) faisal@FaiG3:~/code/MuFU$ time dune exec mufu input/linearcyclic/eg23.in
+File "/home/faisal/.opam/4.05.0/lib/ppx_inline_test/ppx_inline_test.dune", line 1, characters 0-0:
+Warning: .dune files are ignored since 2.0. Reinstall the library with dune
+>= 2.0 to get rid of this warning and enable support for the subsystem this
+library provides.
+File "/home/faisal/.opam/4.05.0/lib/ppx_expect/ppx_expect.dune", line 1, characters 0-0:
+Warning: .dune files are ignored since 2.0. Reinstall the library with dune
+>= 2.0 to get rid of this warning and enable support for the subsystem this
+library provides.
+Goal::             
+G x =v (x<0 \/ (M1 x \/ (M2 x \/ M3 x))).
+AUX:: 
+M1 x =μ (x=0 \/ M1 (x-1)).
+M2 y =μ (y=0 \/ M2 (y-2)).
+M3 z =μ (z=0 \/ M3 (z-3)).
+~*~*~*~*~*~*~*~*~*~*~*
+Goal: (x<0 \/ (M1 x \/ (M2 x \/ M3 x)))
+f: (x<0 \/ (M1 x \/ (M2 x \/ M3 x)))
+Temp: x<0,M1 x,M2 x,M3 x
+RULE: FIXPRED1 x =μ (M1 x \/ (M2 x \/ M3 x)).
+RULE': FIXPRED1 x =μ ((M1 x \/ M2 x) \/ M3 x).
+----- GUESSED UNFOLD >> FOLD -----
+----- SIZE Change GRAPH -----
+edge: M1 -> (x,-1,x)
+edge: M2 -> (y,-2,y)
+edge: M3 -> (z,-3,z)
+Multipath: x(-1,x)
+Unit Cycle: x -> (-1,x)
+Multipath: y(-2,y)
+Unit Cycle: y -> (-2,y)
+Multipath: z(-3,z)
+Unit Cycle: z -> (-3,z)
+Deltas: (x,-1)
+Deltas: (y,-2)
+Deltas: (z,-3)
+Constraints: ((-3)*n_M3_2*1)=((-2)*n_M2_1*1)
+((-3)*n_M3_2*1)=((-1)*n_M1_0*1)
+(n_M1_0x*1)=(n_M1_0*1)
+(n_M2_1x*1)=(n_M2_1*2)
+(n_M3_2x*1)=(n_M3_2*3)
+All: ((-3)*n_M3_2*1)=((-2)*n_M2_1*1),((-3)*n_M3_2*1)=((-1)*n_M1_0*1),(n_M1_0x*1)=(n_M1_0*1),(n_M2_1x*1)=(n_M2_1*2),(n_M3_2x*1)=(n_M3_2*3)
+All': (n_M3_2x*1)=(n_M3_2*3),(n_M2_1x*1)=(n_M2_1*2),(n_M1_0x*1)=(n_M1_0*1),((-3)*n_M3_2*1)=((-1)*n_M1_0*1),((-3)*n_M3_2*1)=((-2)*n_M2_1*1)
+Goal: (and (<= 1 (+ n_M1_0 n_M2_1 n_M3_2))
+     (= (* n_M3_2x 1) (* n_M3_2 3))
+     (= (* n_M2_1x 1) (* n_M2_1 2))
+     (= (* n_M1_0x 1) (* n_M1_0 1))
+     (= (* (- 3) n_M3_2 1) (* (- 1) n_M1_0 1))
+     (= (* (- 3) n_M3_2 1) (* (- 2) n_M2_1 1)))
+Solver: (declare-fun n_M3_2 () Int)
+(declare-fun n_M2_1 () Int)
+(declare-fun n_M1_0 () Int)
+(assert (<= 1 (+ n_M1_0 n_M2_1 n_M3_2)))
+(assert (= (* (- 3) n_M3_2) (* (- 1) n_M1_0)))
+(assert (= (* (- 3) n_M3_2) (* (- 2) n_M2_1)))
+
+n_M2_1: 3
+n_M3_2: 2
+n_M1_0: 6
+Candidate: M1(x) -=>6,M2(x) -=>3,M3(x) -=>2
+Unfolded: (x=0 \/ M1 (x-1))
+Unfolded: (x=0 \/ ((x+(-1))=0 \/ M1 ((x-1)-1)))
+Unfolded: (x=0 \/ ((x+(-1))=0 \/ ((x+(-2))=0 \/ M1 (((x-1)-1)-1))))
+Unfolded: (x=0 \/ ((x+(-1))=0 \/ ((x+(-2))=0 \/ ((x+(-3))=0 \/ M1 ((((x-1)-1)-1)-1)))))
+Unfolded: (x=0 \/ ((x+(-1))=0 \/ ((x+(-2))=0 \/ ((x+(-3))=0 \/ ((x+(-4))=0 \/ M1 (((((x-1)-1)-1)-1)-1))))))
+Unfolded: (x=0 \/ ((x+(-1))=0 \/ ((x+(-2))=0 \/ ((x+(-3))=0 \/ ((x+(-4))=0 \/ ((x+(-5))=0 \/ M1 ((((((x-1)-1)-1)-1)-1)-1)))))))
+Unfolded: (x=0 \/ M2 (x-2))
+Unfolded: (x=0 \/ ((x+(-2))=0 \/ M2 ((x-2)-2)))
+Unfolded: (x=0 \/ ((x+(-2))=0 \/ ((x+(-4))=0 \/ M2 (((x-2)-2)-2))))
+Unfolded: (x=0 \/ M3 (x-3))
+Unfolded: (x=0 \/ ((x+(-3))=0 \/ M3 ((x-3)-3)))
+unsat elimination: (x=0 \/ ((x+(-5))=0 \/ ((x+(-4))=0 \/ ((x+(-3))=0 \/ ((x+(-2))=0 \/ ((x+(-1))=0 \/ (M1 ((((((x-1)-1)-1)-1)-1)-1) \/ (M2 (((x-2)-2)-2) \/ M3 ((x-3)-3)))))))))
+tautology elimination: (x=0 \/ ((x+(-5))=0 \/ ((x+(-4))=0 \/ ((x+(-3))=0 \/ ((x+(-2))=0 \/ ((x+(-1))=0 \/ (M1 ((((((x-1)-1)-1)-1)-1)-1) \/ (M2 (((x-2)-2)-2) \/ M3 ((x-3)-3)))))))))
+Reduced conjuncts: (x=0 \/ ((x+(-5))=0 \/ ((x+(-4))=0 \/ ((x+(-3))=0 \/ ((x+(-2))=0 \/ ((x+(-1))=0 \/ (M1 ((((((x-1)-1)-1)-1)-1)-1) \/ (M2 (((x-2)-2)-2) \/ M3 ((x-3)-3)))))))))
+Before Fold: 
+(x=0 \/ ((x+(-5))=0 \/ ((x+(-4))=0 \/ ((x+(-3))=0 \/ ((x+(-2))=0 \/ ((x+(-1))=0 \/ (M1 ((((((x-1)-1)-1)-1)-1)-1) \/ (M2 (((x-2)-2)-2) \/ M3 ((x-3)-3)))))))))
+Disjunctive
+Formula f: ((M1 x \/ M2 x) \/ M3 x)
+Formula list f: M1 x,M2 x,M3 x
+Pred_f: M1 x,M2 x,M3 x
+Formula ff': (x=0 \/ ((x+(-5))=0 \/ ((x+(-4))=0 \/ ((x+(-3))=0 \/ ((x+(-2))=0 \/ ((x+(-1))=0 \/ (M1 ((((((x-1)-1)-1)-1)-1)-1) \/ (M2 (((x-2)-2)-2) \/ M3 ((x-3)-3)))))))))
+Pred_ff': M1 ((((((x-1)-1)-1)-1)-1)-1),M2 (((x-2)-2)-2),M3 ((x-3)-3)
+matched: M1 ((((((x-1)-1)-1)-1)-1)-1),M2 (((x-2)-2)-2),M3 ((x-3)-3)
+Find Matching: 
+((M1 ((((((x-1)-1)-1)-1)-1)-1) \/ M2 (((x-2)-2)-2)) \/ M3 ((x-3)-3))
+to : ((M1 x \/ M2 x) \/ M3 x)
+Model: x:=(x+(-6))
+Params: x
+Matching
+After Fold: 
+((((((x=0 \/ (x+(-5))=0) \/ (x+(-4))=0) \/ (x+(-3))=0) \/ (x+(-2))=0) \/ (x+(-1))=0) \/ FIXPRED1 (x+(-6)))
+RULE(): FIXPRED1 x =μ ((((((x=0 \/ (x+(-5))=0) \/ (x+(-4))=0) \/ (x+(-3))=0) \/ (x+(-2))=0) \/ (x+(-1))=0) \/ FIXPRED1 (x+(-6))).
+Folded!!!
+~*~*~*~*~*~*~*~*~*~*~*
+Result: 
+%HES
+G  =v ∀ x.(x<0 \/ FIXPRED1 x).
+FIXPRED1 x =μ ((((((x=0 \/ (x+(-5))=0) \/ (x+(-4))=0) \/ (x+(-3))=0) \/ (x+(-2))=0) \/ (x+(-1))=0) \/ FIXPRED1 (x+(-6))).
+M1 x =μ (x=0 \/ M1 (x-1)).
+M2 y =μ (y=0 \/ M2 (y-2)).
+M3 z =μ (z=0 \/ M3 (z-3)).
+OK
+real	0m0.436s
+user	0m0.360s
+sys	0m0.067s
+
+*/

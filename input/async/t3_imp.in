@@ -1,0 +1,8 @@
+%HES
+
+G x =v x < 0 \/ (DM2 x \/ DM3 x) \/ M6 x.
+M6 x =μ x = 0 \/ M6 (x-6).
+M2 x =μ x = 0 \/ M2 (x-2).
+DM2 x =v x <> 0 /\ DM2 (x-2).
+M3 x =μ x = 0 \/ M3 (x-3).
+DM3 x =v x <> 0 /\ DM3 (x-3).

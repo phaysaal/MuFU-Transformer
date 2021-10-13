@@ -1,0 +1,205 @@
+open Hflmc2_syntax
+
+module P = Printer
+module H = Raw_hflz
+
+let eval exp =
+  let rec eval1 = function
+      BINOP (UNDEF, _, _) -> UNDEF
+    | BINOP (_, _, UNDEF) -> UNDEF
+    | BINOP (_, _, NOTHING) -> NOTHING
+    | BINOP (NOTHING, _, _) -> NOTHING
+    | BINOP (e1, op, BINOP(e2, Op.MUL, CONST (-1)))
+    | BINOP (e1, op, BINOP(CONST (-1), Op.MUL, e2)) when op = Op.ADD || op = Op.SUB->
+       begin
+         let op' =
+         match op with
+           Op.ADD -> Op.SUB 
+         | Op.SUB -> Op.ADD
+         | _ -> raise Error
+         in
+         eval1 (BINOP (e1, op', e2))
+       end
+    | BINOP (BINOP (VAR x, Op.ADD, y), o, z) when o = Op.ADD || o = Op.SUB -> BINOP (VAR x, Op.ADD, eval1 (BINOP(y, o, z))) (** (A+B)+C  = A+(B+C) , (A+B)-C  = A+(B-C) *)
+    | BINOP (BINOP (VAR x, Op.SUB, y), Op.SUB, z) -> BINOP (VAR x, Op.SUB, eval1 (BINOP(y, Op.ADD, z))) (** (A-B)-C  = A-B-C = A-(B+C) *)
+    | BINOP (BINOP (VAR x, Op.SUB, y), Op.ADD, z) -> BINOP (VAR x, Op.SUB, eval1 (BINOP(y, Op.SUB, z))) (** (A-B)+C  = A-B+C = A-(B-C) *)
+    | FCALL (s, ts) -> FCALL (s, eval1 |>>| ts)
+    | BINOP (x, o, y) ->
+       begin
+         
+         let x' = eval1 x in
+         let y' = eval1 y in
+         let res =
+         match x', y' with
+           NEGINF, _ -> NEGINF
+         | _, NEGINF -> NEGINF
+         | POSINF, _ -> POSINF
+         | _, POSINF -> POSINF
+         | CONST a, CONST b ->
+            let r =
+              begin
+                match o with
+                  Op.ADD -> a + b
+                | Op.SUB -> a - b
+                | Op.MUL -> a * b
+                | Op.DIV -> a / b
+                | Op.MOD -> a mod b
+                | Op.EQ ->  if a = b then 1 else 0
+                | Op.NE ->  if a = b then 0 else 1
+                | Op.LE ->  if a < b then 1 else 0
+                | Op.OR ->  if a <> 0 || b <> 0 then 1 else 0
+                | Op.AND -> if a =  0 || b =  0 then 0 else 1
+                | Op.SHL ->
+                   
+                   let r = a * (int_of_float ((float_of_int 2) ** (float_of_int b))) in
+                   
+                   r
+                | Op.SHR ->
+                   
+                   let r = a / (int_of_float ((float_of_int 2) ** (float_of_int b))) in
+                   
+                   r
+                | _ -> 0
+              end
+            in
+            CONST r
+         | a, b when o = Op.SUB && a = b -> CONST 0
+         | a, CONST 0 when o = Op.SUB -> a
+         | CONST 0, b when o = Op.MUL -> CONST 0
+         | a, CONST 0 when o = Op.MUL -> CONST 0
+         | CONST 1, b when o = Op.MUL -> b
+         | a, CONST 1 when o = Op.MUL -> a
+         | CONST 0, b when o = Op.ADD -> b
+         | a, CONST 0 when o = Op.ADD -> a
+         | CONST 0, b when o = Op.DIV -> CONST 0
+         | a, CONST 0 when o = Op.DIV -> POSINF
+         | a, CONST 1 when o = Op.DIV -> a
+         | BINOP (a, Op.ADD, b), c when a=c && o = Op.SUB -> b
+         | BINOP (a, Op.ADD, b), c when b=c && o = Op.SUB -> a
+         (* | BINOP (a, o2, CONST b), CONST c when -> pn "++"; (BINOP (a, o2, eval1 (BINOP(CONST b, o, CONST c)))) *)
+         | a, b ->
+            BINOP (a, o, b)
+         in
+         res
+       end
+    | REF (ADDR (VAR v)) -> VAR v
+    | REF e ->
+       begin
+         match (eval1 e) with
+           ADDR (VAR v) -> VAR v
+         | e1 -> REF e1
+       end
+    | INDICES x -> if List.length x = 1 then List.hd x else INDICES x
+    | (SIZEOF s) as x ->
+       if is_simple_type s then
+         CONST (simple_size s)
+       else
+         if V.cardinal structures = 0 then
+           x
+         else
+           if V.mem s structures then
+             CONST (_struct_size_by_name structures s)
+           else(
+             dbg "WARNING" "Undefined Type:" p s;
+             (** crypto_ec_ecp_nistz256_c : sizeof bignum_st  *)
+             CONST 4
+           (* V.iter (fun k v -> pn k) structures; pn "\n@@@@@@"; *)
+           (* raise (StError ("Unsupported type for sizeof " ^ s)) *)
+             
+           )
+    | x -> x
+    in
+    let res = eval1 exp in
+    (* match res with
+      NEG e -> BINOP (CONST 0, Op.SUB, e)
+    | _ ->*)  res
+;;
+
+
+let rec sum_of_mul_exp (exp : t) : (t * t) list = (** x+1-x *)
+      match eval exp with
+        NOTHING -> [(NOTHING, NOTHING)]
+      | STRING (s) -> [(NOTHING, NOTHING)]
+      | NEGINF -> [(NEGINF, CONST 1)]
+      | POSINF -> [(POSINF, CONST 1)]
+      | UNDEF -> [(UNDEF, UNDEF)]
+      | VAR (s) -> [(VAR s, CONST 1)]
+      | CONST (i) -> [(CONST 1, CONST i)]
+      | FLOAT (f) -> [(FLOAT f, CONST 1)]
+      | NEG e -> [(e, CONST (-1))]
+      | BINOP (e1, op, e2) ->
+         begin
+           let es1 = sum_of_mul_exp e1 in
+           let es2 = sum_of_mul_exp e2 in
+           match op with
+             Op.ADD -> (** (c1v1+c2v2) + (c3v3+c4v4) *)
+             es1 @ es2
+           | Op.SUB -> (** (c1v1+c2v2) - (c3v3+c4v4) *)
+              let es2' = (fun (v,c) -> (v, eval (BINOP (CONST 0, Op.SUB, c)))) |>>| es2 in
+              es1 @ es2'
+           | Op.MUL ->
+              (** (c1v1+c2v2) * (c3v3+c4v4) *)
+              List.concat ((fun (v1,c1) -> (fun (v2, c2) -> 
+                              (v1, 
+                               BINOP (
+                                   BINOP (c1, Op.MUL, c2),
+                                   Op.MUL,
+                                   v2))
+                            ) |>>| es2) |>>| es1)
+           | Op.DIV ->
+              (** (c1v1+c2v2) / (c3v3+c4v4) *)
+              List.concat ((fun (v1,c1) -> (fun (v2, c2) -> 
+                              (eval (BINOP (v1, Op.DIV, v2)), eval (BINOP (c1, Op.DIV, c2)))
+                            ) |>>| es2) |>>| es1)
+           | _ -> [(exp, CONST 1)]
+         end
+      | e -> [(e, CONST 1)]
+      
+  let norm exp =
+    pf_s "NORM" pprint exp;
+    pn_s "NORM" " :: Original";
+    let expanded_exp = sum_of_mul_exp exp in
+    pf_s "NORM" (iterS (fun (a,b) -> pprint a; p "*"; pprint b) "+") expanded_exp;
+    pn_s "NORM" " :: + of *";
+    let (common_collections, _) = (fun ((a : (t * (t*t) list) list),vs) (v,c) ->
+        let rec get_coeff v c =
+          match v with
+          | BINOP (e1, Op.MUL, e2) ->
+             let (v'', c'') = get_coeff e1 c in
+             (v'', eval (BINOP (c'', Op.MUL, e2)))
+          | _ -> (v, c)
+        in
+        let v', c' = get_coeff v c in
+
+        if v |<- vs then
+          ((fun ((x : t), (es : (t * t) list)) -> (x, if x = v' then es @ [(v',c')] else es)) |>>| a, vs)
+        else
+          (a @ [(v', [(v',c')])], (vs @ [v']))
+      ) |->> (([],[]), expanded_exp) in
+
+    let commons = (fun ((v : t), (cs' : (t * t) list)) ->
+        p_s "NORM" "v: ";
+        pf_s "NORM" pprint v;
+        p_s "NORM" "* (";
+        pf_s "NORM" (iterS (fun (a,b) -> pprint b) "+") cs';
+        pn_s "NORM" ")";
+        match cs' with
+          [] -> CONST 0
+        | (_, c)::cs ->
+           let m = (fun c (_, c') -> BINOP (c, Op.ADD, c')) |->> (c, cs) in
+           let r = BINOP (v, Op.MUL, m) in
+           p_s "NORM" "r: ";
+           pf_s "NORM" pprint r;
+           pn_s "NORM" "";
+           r
+      ) |>>| common_collections in
+
+    let r = (fun a e -> eval (BINOP (a, Op.ADD, e))) |->> (CONST 0, commons) in
+    p_s "NORM" "res: ";
+    pf_s "NORM" pprint r;
+    pn_s "NORM" "";
+    eval r
+  (** a + 2*a*b + b = a*(1+2*b) + b OR b*(1+2*a)+a *)
+
+  ;;
+  
