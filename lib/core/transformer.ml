@@ -1906,7 +1906,7 @@ let get_unfolded_formula defs_map f candidate =
   List.fold_left (fun f (pred_call, unfolded) -> U.subs_f pred_call unfolded f) f unfolded_candidate
 ;;
 
-let is_unfolding_candidate defs_map deltas src dest =
+let is_unfolding_candidate transformer goal defs_map f deltas src dest =
   let pp = (fun (pn, args) -> pn ^ "(" ^ P.pp_list P.pp_formula args ^ ")") in
   P.pp_list pp src |> P.dbg "src";
   P.pp_list pp dest |> P.dbg "dest";
@@ -1977,17 +1977,22 @@ let is_unfolding_candidate defs_map deltas src dest =
   in
   let s_Ps = List.fold_left (fun acc (p, sl) -> D.add p sl acc) D.empty src_times in
   try
-    let res = get_gen_candidate gen_constraint ns s_Ps (List.concat constraints) in
-    P.dbg "Status" "VALID";
-    true, res
+    let candidate = get_gen_candidate gen_constraint ns s_Ps (List.concat constraints) in
+    let unfolded = get_unfolded_formula defs_map f candidate in
+    let f'' = transformer unfolded in
+    let is_matched, f' = fold goal f'' in
+    if is_matched then
+      true, Some f'
+    else
+      false, None
   with
     _ ->
-    false, []
+    false, None
 ;;
 
-let get_unfolding_candidates defs_map deltas src perms =
+let get_unfolding_candidates transformer goal defs_map f deltas src perms =
   let rec aux f = function
-      [] -> raise Err
+      [] -> None
     | x::xs ->
        let b,r = f x in
        if b then
@@ -1996,7 +2001,7 @@ let get_unfolding_candidates defs_map deltas src perms =
          aux f xs
   in
 
-  aux (is_unfolding_candidate defs_map deltas src) perms
+  aux (is_unfolding_candidate transformer goal defs_map f deltas src) perms
 ;;
 
 let size_change_graphed_unfold_fold transformer goal defs_map f =
@@ -2007,13 +2012,13 @@ let size_change_graphed_unfold_fold transformer goal defs_map f =
   let deltas = get_deltas unit_cycles in
   let _, grp_map = get_recursive_groups defs_map f in
   let src, perms = get_pre_candidates grp_map f in
-  let candidate = get_unfolding_candidates defs_map deltas src perms in
+  let res = get_unfolding_candidates transformer goal defs_map f deltas src perms in
   
   (* P.pp_list (fun a -> "{" ^ P.pp_list (fun (i,b) -> (string_of_int i) ^ "." ^ P.pp_formula b) a ^ "}\n") perms |> P.dbg "Perm"; *)
   (*
   let gen_constraint, constraints, multipliers, l_Ps = get_constraints defs_map f deltas in
   let candidate = get_candidate gen_constraint multipliers l_Ps constraints in *)
-  let unfolded = get_unfolded_formula defs_map f candidate in
+  (*let unfolded = get_unfolded_formula defs_map f candidate in
   let f'' = transformer unfolded in
   let is_matched, f' = fold goal f'' in
   if is_matched then
@@ -2026,7 +2031,8 @@ let size_change_graphed_unfold_fold transformer goal defs_map f =
       Some ([newpred], params) *)
     end
   else
-    None
+    None *)
+  res
 ;;
 
 (*
