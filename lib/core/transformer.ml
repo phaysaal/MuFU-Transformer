@@ -871,7 +871,9 @@ let get_unfold_set all_deps goal_preds f =
         let perm_pred = get_permutation pred_set in
         List.filter ((<>)[]) perm_pred
     ) conjuncts_set' |> List.concat
-  
+
+P.pp_formula f |> P.dbg "f";  
+
 ;; *)
 
 let rec get_predicates = function
@@ -1589,6 +1591,113 @@ let get_unit_cycle graph defs_map =
   D.fold f graph D.empty
 ;;
 
+let get_recursive_groups defs_map f =
+  let defs_l = D.bindings defs_map in
+  let pred_deps (pn, pred) = pn, pred.H.body
+                            |> get_predicates
+                            |> List.map U.explode_pred
+                            |> List.map fst
+  in
+  let pred_n_deps = List.map pred_deps defs_l in
+  let rec make_rec_groups_of (nm, deps) = function
+      [] -> [nm], []
+    | pred_n_deps ->
+       let dep_preds, non_dep_preds = List.partition (fun (p, _) -> List.mem p deps) pred_n_deps in
+       let rec_dep_preds, rest =
+         List.fold_left (fun (acc, rest) p ->
+             let rec_grp, rest' = make_rec_groups_of p rest in
+             (acc @ rec_grp, rest')
+           ) ([], non_dep_preds) dep_preds
+       in
+       (nm::rec_dep_preds), rest
+  in
+  let rec make_rec_groups = function
+      [] -> []
+    | h::rest ->
+       let grp, rest' = make_rec_groups_of h rest in
+       grp::make_rec_groups rest'
+  in
+  let grps = make_rec_groups pred_n_deps in
+  let grp_map = List.fold_left (fun acc g ->
+                    List.fold_left (fun acc a -> D.add a g acc) acc g
+                  ) D.empty grps in
+  let f_preds = get_predicates f |> List.map U.explode_pred |> List.map fst in
+  let grps' = List.map (fun grp -> List.filter (fun g -> List.mem g f_preds) grp) grps in
+  grps', grp_map
+;;
+
+(*
+let get_recursive_groups_of_preds grp_map f =
+  let pred_calls = get_predicates f in
+  let rec_grps = List.map (fun pred ->
+                     let (pn, args) = U.explode_pred pred in
+                     List.map (fun g -> (pn, args, g)) (D.find pn grp_map)
+                   ) pred_calls in
+  []
+;;
+
+
+let rec get_perm = function
+    [] -> [[]]
+  | x::xs ->
+     List.map (fun xs -> (x :: xs)) (get_perm xs)
+;;
+
+let perm_groups groups =
+  let rec cross = function
+      [] -> []
+    | x::[] ->
+       x
+    | x::xs ->
+       List.map (fun xs' -> List.map (fun x' -> x'@xs') x) (cross xs)
+       |> List.concat
+  in
+  let grp_perms = List.map get_perm groups in
+  cross grp_perms
+;;
+ *)
+
+let get_perm fvs grp_map ls =
+  let is_same_grp (_,(nm,_)) nmy =
+    List.mem nmy (D.find nm grp_map)
+  in
+
+  let ls' : (int * (bytes * hfl list)) list = List.mapi (fun i l -> (i,l)) ls in
+  let fvs'' = List.map (fun fv -> H.mk_var (fv ^ "'")) fvs in
+  let ls'' = List.map (fun (i, (pn, p_args)) -> (i, (pn, List.map (subs_vars fvs fvs'') p_args))) ls' in
+  let rec aux xs =
+    match xs with
+    [] -> [[]]
+  | x::xs ->
+     let perms : (int * (bytes * hfl list)) list list = aux xs in
+     let res = List.map
+       (fun (p: (int * (bytes * hfl list)) list) ->
+         List.fold_left (fun acc ((li, (lPn,_)) as l) ->
+             (* if is_same_grp x l then *)
+             if not (is_same_grp x lPn) || List.exists (fun (pi,_) -> li=pi) p then
+               acc
+             else
+               (l::p)::acc
+           ) [] ls'')
+       perms
+     in
+     res |> List.concat
+  in
+  
+  let res : ((bytes * hfl list)) list list = List.map (fun x -> List.map snd x) (aux ls') in
+  string_of_int (List.length res) |> P.dbg "Len";
+  
+  res, ls
+;;
+
+let get_pre_candidates grp_map f =
+  let fvs = U.fv f in
+  let pr_ns = get_predicates f |> List.map U.explode_pred in
+  let perms, src = get_perm fvs grp_map pr_ns in
+  src, perms
+;;
+
+
 let get_deltas unit_cycles =
   let sum ws = List.fold_left (+) 0 ws in
   let f (l, cycles) =
@@ -1599,9 +1708,11 @@ let get_deltas unit_cycles =
   D.map f unit_cycles
 ;;
 
-let get_constraints defs_map f (deltas : (int * 'a) D.t) =
+let get_optimized_constraints defs_map f (deltas : (int * 'a) D.t) =
+  (** n_i *)
   let n_P i pn = H.Var ("n_" ^ pn ^ "_" ^ (string_of_int i)) in 
   let pred_calls = get_predicates f in
+  (** n_i, P_i, [t_i] *)
   let n_pn_args = List.mapi (fun i pc ->
                       let (pn, args) = U.explode_pred pc in
                       let n_p = n_P i pn in
@@ -1693,6 +1804,33 @@ let get_constraints defs_map f (deltas : (int * 'a) D.t) =
   hd_constraint, all_constraints, multipliers, l_Ps
 ;;
 
+
+let get_general_constrains defs_map f deltas =
+  let preds_f = get_predicates f in
+  H.Pred (Formula.Eq, [H.Int 0;H.Int 0]),[],[],D.empty
+;;
+
+
+let get_constraints defs_map f (deltas : (int * 'a) D.t) =
+  let rec all_args_one_var f =
+    let fn2 arg =
+      let fvs = U.fv arg in
+      List.length fvs <= 1
+    in
+    let fn pred =
+      let _, args = U.explode_pred pred in
+      List.for_all fn2 args
+    in
+    let preds = get_predicates f in
+    List.for_all fn preds
+  in
+  if all_args_one_var f then
+    get_optimized_constraints defs_map f deltas
+  else
+    get_general_constrains defs_map f deltas
+;;
+
+
 let get_candidate gen_constraint multipliers l_Ps constraints =
   match constraints with
     [] -> []
@@ -1722,6 +1860,36 @@ let get_candidate gen_constraint multipliers l_Ps constraints =
     candidates
 ;;
 
+let get_gen_candidate gen_constraint multipliers s_Ps constraints =
+  match constraints with
+    [] -> []
+  | all ->
+     let ms = List.map fst multipliers |> List.map P.pp_formula in
+     P.pp_list P.pp_formula all |> P.dbg "All";
+     let all' = U.reduce_eq ms all in
+     P.pp_list P.pp_formula all' |> P.dbg "All'";
+     let c = List.fold_left H.mk_and gen_constraint all' in
+     let model = Z.solve_model_s ms gen_constraint all' in
+                
+     List.iter (fun (id, v) -> print_endline (id ^ ": " ^ (string_of_int v))) model;
+     let candidates = List.map (fun (m, (pred, args)) ->
+         let (_, v) =
+           try
+             let (id, t) = List.find (fun (id, _) -> H.mk_var id = m) model in
+             let (s,l) = D.find (P.pp_formula m) s_Ps in
+             (id, s + t * l)
+           with
+             Not_found ->
+             print_endline (P.pp_formula m ^ " is not found in the model");
+             raise Not_found
+         in
+         ((pred, args), v)
+       ) multipliers
+    in
+    P.pp_list (fun ((pn, args), v) -> pn ^ "(" ^ P.pp_list P.pp_formula args ^ ") -=>" ^ string_of_int v) candidates |> P.dbg "Candidate";
+    candidates
+;;
+
 let get_unfolded_formula defs_map f candidate =
   let rec unfold_cand f v =
     if v = 0 then
@@ -1738,14 +1906,113 @@ let get_unfolded_formula defs_map f candidate =
   List.fold_left (fun f (pred_call, unfolded) -> U.subs_f pred_call unfolded f) f unfolded_candidate
 ;;
 
+let is_unfolding_candidate defs_map deltas src dest =
+  let pp = (fun (pn, args) -> pn ^ "(" ^ P.pp_list P.pp_formula args ^ ")") in
+  P.pp_list pp src |> P.dbg "src";
+  P.pp_list pp dest |> P.dbg "dest";
+  let src_dest = List.combine src dest in
+  let get_next a args =
+    let pred = D.find a defs_map in
+    let param_args = List.combine pred.H.args args in
+    let pred_calls = pred.H.body |> get_predicates in
+    if List.length pred_calls = 1 then
+      let pred_call = List.hd pred_calls in
+      let pred_call' = subs_vars pred.H.args args pred_call (* List.fold_left (fun pc (p,a) -> subs_vars p a pc) pred_call param_args *) in
+      U.explode_pred pred_call'
+    else
+      raise Err
+  in
+  let rec get_shortest_distance args a b =
+    if a = b then
+      args, 0
+    else
+      let next, args = get_next a args in
+      let last_args, dist = get_shortest_distance args next b in
+      last_args, dist+1
+  in
+  let get_shortest_distance ((a,args) as i) ((b,_) as j) =
+    let pred = D.find a defs_map in
+    let last_args, dist = get_shortest_distance args a b in
+    let param_last_args = List.combine pred.H.args last_args in
+    (i, j, dist, param_last_args) in
+  let shortest_distances = List.map2 get_shortest_distance src dest in
+
+  List.iter (fun (i,j,l,s) -> pp j ^ ":" ^ P.pp_list (fun (x,y) -> x ^ "->" ^ P.pp_formula y) s ^ " :" ^ (string_of_int l) |> P.dbg (fst i)) shortest_distances;
+  let shortest_distances_i = List.mapi (fun n (i,j,d,s) -> (H.mk_var ("N" ^ string_of_int n),i,j,d,s)) shortest_distances in
+
+  let make_constraint (n,(src,org_arg),(dest,args''), dist, mid_args) =
+    let (l, unit_deltas) = D.find dest deltas in
+    let args''_mid_args = List.combine args'' mid_args in
+    
+    let mid_arg_deltas = List.fold_left (fun acc (arg'', (param, arg)) ->
+                             try
+                               let _, delta = List.find (fun (x,_) -> x=H.Var param) unit_deltas in
+                               acc @ [(arg'', arg, delta)]
+                             with
+                               _ -> acc
+                           ) [] args''_mid_args in
+
+    let constraints =
+      List.map (fun (arg'', mid_arg, unit_delta) ->
+          let last_arg = H.Op (Arith.Add, [mid_arg; H.Op (Arith.Mult, [n; H.Int unit_delta])]) in (** mid_arg + Ni * unit_dist *)
+          H.Pred (Formula.Eq, [arg''; last_arg])
+        ) mid_arg_deltas
+    in
+    let times = H.Op (Arith.Add, [H.Int dist; H.Op (Arith.Mult, [H.Int l;n])]) in
+    src |> P.dbg "source";
+    P.pp_formula n |> P.dbg "n";
+    P.pp_formula times |> P.dbg "times";
+    P.pp_list P.pp_formula constraints |> P.dbg "constraints";
+    (((P.pp_formula n, (dist, l)), (n, (src, org_arg))), constraints) 
+  in
+
+  let all_constraints = List.map make_constraint shortest_distances_i in
+  let all, constraints = List.split all_constraints in
+  let src_times, ns = List.split all in
+
+  let l_Ps = D.map (fun d -> (fst d)) deltas in
+  let gen_constraint = List.map fst ns
+                      |> H.mk_op Arith.Add 
+                      |> H.mk_pred Formula.Le (H.Int 1)
+  in
+  let s_Ps = List.fold_left (fun acc (p, sl) -> D.add p sl acc) D.empty src_times in
+  try
+    let res = get_gen_candidate gen_constraint ns s_Ps (List.concat constraints) in
+    P.dbg "Status" "VALID";
+    true, res
+  with
+    _ ->
+    false, []
+;;
+
+let get_unfolding_candidates defs_map deltas src perms =
+  let rec aux f = function
+      [] -> raise Err
+    | x::xs ->
+       let b,r = f x in
+       if b then
+         r
+       else
+         aux f xs
+  in
+
+  aux (is_unfolding_candidate defs_map deltas src) perms
+;;
+
 let size_change_graphed_unfold_fold transformer goal defs_map f =
   print_endline "----- SIZE Change GRAPH -----";
   let graph = get_size_change_graph defs_map in
-  D.iter (fun v (_,l) -> List.iter (fun (x, w, y) -> (v ^ " -> (" ^ P.pp_formula x ^ "," ^ string_of_int w ^ "," ^ P.pp_formula y ^ ")" ) |> P.dbg "edge") l) graph;
+  D.iter (fun v (xx,l) -> print_endline xx; List.iter (fun (x, w, y) -> (v ^ " -> (" ^ P.pp_formula x ^ "," ^ string_of_int w ^ "," ^ P.pp_formula y ^ ")" ) |> P.dbg "edge") l) graph;
   let unit_cycles = get_unit_cycle graph defs_map in
   let deltas = get_deltas unit_cycles in
+  let _, grp_map = get_recursive_groups defs_map f in
+  let src, perms = get_pre_candidates grp_map f in
+  let candidate = get_unfolding_candidates defs_map deltas src perms in
+  
+  (* P.pp_list (fun a -> "{" ^ P.pp_list (fun (i,b) -> (string_of_int i) ^ "." ^ P.pp_formula b) a ^ "}\n") perms |> P.dbg "Perm"; *)
+  (*
   let gen_constraint, constraints, multipliers, l_Ps = get_constraints defs_map f deltas in
-  let candidate = get_candidate gen_constraint multipliers l_Ps constraints in
+  let candidate = get_candidate gen_constraint multipliers l_Ps constraints in *)
   let unfolded = get_unfolded_formula defs_map f candidate in
   let f'' = transformer unfolded in
   let is_matched, f' = fold goal f'' in
@@ -2163,7 +2430,7 @@ let rec transform_disjunction goal defs_map env f =
          else
            Fixpoint.Least
        in
-       let f = nonatomics |> List.sort_uniq compare_raw_hflz |> mk_ors in
+       let f = nonatomics |> List.sort compare_raw_hflz |> mk_ors in
        let newgoalname = new_predicate_name () in
        let args = List.map H.mk_var goal.H.args in
        let ps = goal.H.args in
