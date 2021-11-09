@@ -1,0 +1,5 @@
+%HES
+
+G x y z nx ny nz =v NotShuffle x y z \/ NotLength x nx \/ NotLength y ny \/ NotLength z nz \/ nz=nx+ny.
+NotShuffle x y z =v (NotShuffle y (x-2) (z-2)).
+NotLength w n =v NotLength (w-2) (n-1).

@@ -1,0 +1,7 @@
+%HES
+
+G x y z u v =v ((NotPlus x y u \/ NotPlus u z v) \/ ∃w.(Plus y z w /\ Plus x w v)). /* /\ ((NotPlus y z w \/ NotPlus x w v) \/ (Plus x y u /\ Plus u z v)). */
+Plus x y u =μ (x>0 /\ Plus (x-1) y (u-1)). /* (x=0 /\ y=u) \/  */
+NotPlus x y u =v (x<=0 \/ NotPlus (x-1) y (u-1)). /* (x<>0 \/ y=u) /\  */
+
+ 

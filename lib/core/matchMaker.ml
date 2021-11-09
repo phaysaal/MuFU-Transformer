@@ -323,6 +323,8 @@ let rec unify_pred u f1 f2 =
   | H.App _, H.App _ ->
      unify_app u [] f1 f2
   | H.Exists (s1, g1), H.Exists (s2, g2) ->
+     P.pp_formula f1 |> P.dbg "f1 in exist";
+     P.pp_formula f2 |> P.dbg "f2 in exist";
      let g1' = g1 in
      let g2' = subs_var s2 (H.Var s1) g2 in
      unify' u g1' g2'
@@ -350,8 +352,9 @@ and unify_conj u f1 f2 =
   match f1, f2 with
     H.And (g1, g2), H.And (h1, h2) ->
      begin
-       
-       match unify_disj u g1 h1 with
+       P.pp_formula f1 |> P.dbg "f1 in conj";
+       P.pp_formula f2 |> P.dbg "f2 in conj";
+       match unify_conj u g1 h1 with
          None -> None
        | Some r1 as u' ->
           begin
@@ -595,18 +598,78 @@ let find_matching fix _X (params : string list) f f' =
    find_matching_direct fix _X params f f'
 ;;
 
+let subs_eq_pred to_be c d by = function
+  | H.Pred (Formula.Eq, a::b::_) ->
+     let fva = fv a in
+     let fvb = fv b in
+     let ina = List.mem to_be fva in
+     let inb = List.mem to_be fvb in
+     let by_d = H.mk_op Arith.Sub [by;d] in
+
+     let fn c by_d a =
+       let (c1, d1) = A.cx_d to_be a in
+       let c1' = A.list_to_sum c1 |> A.eval in
+       let d1' = A.list_to_sum d1 |> A.eval in
+       let c1_by_d = H.mk_op Arith.Mult [c1';by_d] in
+       let c_d1 = H.mk_op Arith.Mult [c;d1'] in
+       let a' = H.mk_op Arith.Add [c1_by_d;c_d1] in
+       a'
+     in
+     let a', b' =
+       if ina && inb then
+         (* (c1 tobe + d1)[xx:=(by-d)/c] = (c2 tobe + d2)[xx:=(by-d)/c] *)
+         (* (c1 ((by-d)/c) + d1) = (c2 ((by-d)/c) + d2) *)
+         (* (c1 (by-d) + c*d1) = (c2 (by-d) + c d2) *)
+         let a' = fn c by_d a in
+         let b' = fn c by_d b in
+         
+         (a',b')
+       else if ina then
+         (* (c1 tobe + d1)[xx:=(by-d)/c] = b *)
+         (* (c1 ((by-d)/c) + d1) = b *)
+         (* (c1 (by-d) + c*d1) = c*b *)
+         let a' = fn c by_d a in
+         let b' = H.mk_op Arith.Mult [c;b] in
+         
+         (a',b')
+       else if inb then
+         let a' = H.mk_op Arith.Mult [c;a] in
+         let b' = fn c by_d b in
+         
+         (a',b')
+       else
+         (a,b)
+     in
+     H.mk_pred Formula.Eq (A.normalize a') (A.normalize b')
+  | f ->
+    let by' = H.Op (Arith.Div, [H.Op (Arith.Sub, [by;d]);c]) in
+    subs_var to_be by' f
+;;
     
-let reduce_eq exc fs =
-  let rec reduce_eq exc acc = function
+let reduce_eq ?(fresh=[]) exc fs =
+  let rec reduce_eq (* exc *) acc = function
       [] -> acc
-    | H.Pred (Formula.Eq, H.Var a'::a::[])::xs when not (List.mem a' exc) ->
-       let acc' = List.map (subs_var a' a) acc in
-       let xs' = List.map (subs_var a' a) xs in
-       reduce_eq exc acc' xs'
+    | (H.Pred (Formula.Eq, a'::b::[]) as x)::xs when List.exists (fun v -> List.mem v fresh) (fv a') ->
+       begin
+         (* P.pp_formula x |> P.dbg "x"; *)
+         let v = fv a' |> List.hd in
+         let (c, d) = A.cx_d v a' in
+         let c' = A.list_to_sum c |> A.eval in
+         let d' = A.list_to_sum d |> A.eval in
+         (* P.pp_formula c' |> P.dbg "c'";
+         P.pp_formula d' |> P.dbg "d'"; *)
+         (* let b' = H.Op (Arith.Div, [H.Op (Arith.Sub, [b;d']);c']) in *)
+         let acc' = List.map (subs_eq_pred v c' d' b) acc in
+         (* P.pp_list P.pp_formula acc' |> P.dbg "acc'"; *)
+         let xs' = List.map (subs_eq_pred v c' d' b) xs in
+         (* P.pp_list P.pp_formula xs' |> P.dbg "xs'"; *)
+         reduce_eq (* exc *) acc' xs'
+         
+       end
     | x::xs ->
-       reduce_eq exc (x::acc) xs
+       reduce_eq (* exc *) (x::acc) xs
   in
-  reduce_eq exc [] fs
+  reduce_eq (* exc *) [] fs
 ;;
 
 

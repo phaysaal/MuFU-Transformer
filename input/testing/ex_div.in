@@ -1,0 +1,6 @@
+%HES
+
+Q n =v NDiv2 n \/ NDiv3 n \/ Div6 n.
+NDiv2 p =v p<>0 /\ NDiv2 (p-2).
+NDiv3 q =v q<>0 /\ NDiv3 (q-3).
+Div6 r =v r=0 \/ Div6 (r-6).

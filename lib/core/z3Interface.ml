@@ -288,8 +288,15 @@ let solve_model f =
                                 let r3 = r2 |> int_of_string in
                                 (r1,r3)::model
                               with
-                                e -> print_endline (r1 ^ "->" ^ r2); 
-                                   raise e
+                                _ ->
+                                  let r2' = String.sub r2 3 (String.length r2 -4) in
+                                
+                                try
+                                  let r3 = r2' |> int_of_string in
+                                  (r1,-r3)::model
+                                with
+                                  e -> print_endline (r1 ^ "->" ^ r2'); 
+                                       raise e
                             else
                               model
                        ) [] ds
