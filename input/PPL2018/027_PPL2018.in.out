@@ -1,6 +1,6 @@
 %HES
-G  =v ∀ y.∀ x.((Even z /\ Plus x y z) \/ FIXPRED2 x y).
-FIXPRED2 x y =v (((x+(-1))<>0 \/ NotOdd y) /\ ((0 <> 0) \/ FIXPRED2 y ((-2)+x))).
+G  =v ∀ y.∀ x.FIXPRED1 x y.
+FIXPRED1 x y =v (((x+y)=0 \/ FIXPRED1 x (y+(-2))) /\ (NotOdd x \/ ((y+(-1))<>0 \/ ((x+y)=0 \/ Even (((x+y)-1)-1))))).
 NotEven x =v (x<>0 /\ NotOdd (x-1)).
 NotOdd x =v NotEven (x-1).
 Even x =μ (x=0 \/ Odd (x-1)).

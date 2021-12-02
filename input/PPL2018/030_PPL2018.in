@@ -1,0 +1,11 @@
+%HES
+
+/*
+len(xs) ≈x, len(ys) ≈y ⇒len(app(xs, ys)) ≈plus(x, y)
+*/
+
+G xs ys x y =v DLen xs x \/ DLen ys y \/ Len (xs+ys) (x+y). 
+
+Len x y =v (x=0 /\ y=0) \/ (Len (x-1) (y-1)).
+DLen x y =v (x<>0 \/ y<>0) /\ (DLen (x-1) (y-1)).
+App zs ys xs =v (zs=0 /\ ys=xs) \/ (zs>0 /\ App (zs-1) ys (xs-1)).

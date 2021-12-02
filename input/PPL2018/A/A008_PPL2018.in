@@ -1,5 +1,5 @@
 %HES
-G  =v ∀ q.∀ p.∀ w.∀ z.∀ y.∀ x.((DS 0 p \/ (DS p q \/ (Dplus x p z \/ (Dplus y q w \/ Neq z w)))) \/ ∃n.(S y n /\ Eq x n)).
+G  =v ∀ q.∀ p.∀ w.∀ z.∀ y.∀ x.(1<>p \/ p+1<>q \/ Dplus x p z \/ Dplus y q w \/ z<>w) \/ y+1=x.
 Eq x y =μ ((x=0 /\ y=0) \/ (x>0 /\ (y>0 /\ Eq (x-1) (y-1)))).
 Neq x y =v ((x<>0 \/ y<>0) /\ (x<0 \/ (x=0 \/ (y<0 \/ (y=0 \/ Neq (x-1) (y-1)))))).
 Leq x y =μ (x=0 \/ ((x=0 /\ y=0) \/ (x>0 /\ (y>0 /\ Leq (x-1) (y-1))))).

@@ -1,0 +1,5 @@
+%HES
+G  =v ∀ v.∀ z.∀ u.∀ y.∀ x.FIXPRED1 x y u z v.
+FIXPRED1 x y u z v =μ (((((x>0 /\ u>0) /\ FIXPRED1 (x+(-1)) y (u+(-1)) z (v+(-1))) \/ (x>0 /\ (Plus (x-1) y (u-1) /\ (u=0 /\ z=v)))) \/ (x=0 /\ (y=u /\ (u>0 /\ Plus (u-1) z (v-1))))) \/ (x=0 /\ (y=u /\ (u=0 /\ z=v)))).
+Plus x y u =μ ((x=0 /\ y=u) \/ (x>0 /\ Plus (x-1) y (u-1))).
+NotPlus x y u =v ((x<>0 \/ y=u) /\ (x<=0 \/ NotPlus (x-1) y (u-1))).

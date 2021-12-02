@@ -1,0 +1,10 @@
+%HES
+G  =v ∀ q.∀ p.∀ z.∀ y.∀ x.(Dplus x y p \/ (Neq p z \/ FIXPRED1 x y z q)).
+FIXPRED1 x y z q =μ ((0 = 0) /\ FIXPRED1 (x+(-1)) y (z+(-1)) (q+(-1))).
+Eq x y =μ Eq (x-1) (y-1).
+Neq x y =v Neq (x-1) (y-1).
+Leq x y =μ (x=0 \/ ((x=0 /\ y=0) \/ (x>0 /\ (y>0 /\ Leq (x-1) (y-1))))).
+S x y =μ ((x=0 /\ y=1) \/ (x>0 /\ S (x-1) (y-1))).
+DS x y =v ((x<>0 \/ y<>1) /\ (x<0 \/ (x=0 \/ DS (x-1) (y-1)))).
+Plus x y r =μ Plus x (y-1) (r-1).
+Dplus x y r =v Dplus x (y-1) (r-1).

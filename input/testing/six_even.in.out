@@ -1,0 +1,6 @@
+%HES
+Q  =v ∀ n.FIXPRED1 n.
+FIXPRED1 n =v (((n=0 \/ (n+(-2))=0) \/ (n+(-4))=0) \/ FIXPRED1 (n+(-6))).
+Even x =μ (x=0 \/ Odd (x-1)).
+Odd y =μ Even (y-1).
+DDiv6 z =v (z<>0 /\ DDiv6 (z-6)).

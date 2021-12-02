@@ -1,5 +1,5 @@
 %HES
-G  =v ∀ y.∀ x.(Nleq y x \/ ∃z.(S x z /\ Leq y z)).
+G  =v ∀ y.∀ x.Nleq y x \/ ∃ z.(x+1=z /\ Leq y z).
 Eq x y =μ ((x=0 /\ y=0) \/ (x>0 /\ (y>0 /\ Eq (x-1) (y-1)))).
 Neq x y =v ((x<>0 \/ y<>0) /\ (x<0 \/ (x=0 \/ (y<0 \/ (y=0 \/ Neq (x-1) (y-1)))))).
 Leq x y =μ (x=0 \/ (x>0 /\ (y>0 /\ Leq (x-1) (y-1)))).

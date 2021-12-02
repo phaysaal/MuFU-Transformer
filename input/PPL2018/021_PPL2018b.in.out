@@ -1,7 +1,6 @@
 %HES
-G  =v ∀ y.∀ x.FIXPRED2 x y.
-FIXPRED2 x y =v ((((x=0 \/ (y<>0 \/ x>0)) /\ (x=0 \/ (y<>0 \/ (y>0 \/ ∃z.S (x-1) (z-1))))) /\ (x=0 \/ (y<>0 \/ (FIXPRED1 (x+(-1)) (y+(-1)) \/ ∃z.S (x-1) (z-1))))) /\ ((((x=0 \/ y=0) \/ x<0) \/ y<0) \/ FIXPRED2 (x+(-1)) (y+(-1)))).
-FIXPRED1 x y =μ ((((x=0 /\ y=0) \/ (x=0 /\ (y>0 /\ Leq (y-1) (1-1)))) \/ (y=0 /\ (x>0 /\ ∃z.S (x-1) (z-1)))) \/ ((x>0 /\ y>0) /\ FIXPRED1 (x+(-1)) (y+(-1)))).
+G  =v ∀ w.∀ v.∀ y.∀ x.(Nleq x y \/ (Nleq v w \/ FIXPRED1 x y v w)).
+FIXPRED1 x y v w =μ ((v=0 /\ ∃q.Plus y w q) \/ (v>0 /\ FIXPRED1 x y (v+(-1)) w)).
 Eq x y =μ ((x=0 /\ y=0) \/ (x>0 /\ (y>0 /\ Eq (x-1) (y-1)))).
 Neq x y =v ((x<>0 \/ y<>0) /\ (x<0 \/ (x=0 \/ (y<0 \/ (y=0 \/ Neq (x-1) (y-1)))))).
 Leq x y =μ (x=0 \/ (x>0 /\ (y>0 /\ Leq (x-1) (y-1)))).

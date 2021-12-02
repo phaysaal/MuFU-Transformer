@@ -1,6 +1,10 @@
 %HES
-G  =v ∀ w.∀ v.∀ y.∀ x.((Leq p q /\ (Plus x v p /\ Plus y w q)) \/ FIXPRED2 x y v w).
-FIXPRED2 x y v w =v ((v<>0 \/ Nleq x y) /\ ((((v=0 \/ w=0) \/ v<0) \/ w<0) \/ FIXPRED2 ((-1)+v) ((-1)+w) x y)).
+G  =v ∀ z.∀ y.∀ x.FIXPRED1 x y z.
+FIXPRED1 x y z =v (((((((y<0 \/ y=0) \/ (y+(-1))<0) \/ (y+(-1))=0) \/ (x+y)=0) \/ FIXPRED1 x (y+(-2)) (z+(-2))) /\ (y<0 \/ (y=0 \/ ((y+(-1))<>0 \/ (x<>(z+(-1)) \/ ((x+y)=0 \/ (Even (((x+y)-1)-1) \/ (NotEven x \/ NotEven ((y-1)-1))))))))) /\ (y<>0 \/ (x<>z \/ ((x+y)=0 \/ (Even (((x+y)-1)-1) \/ (NotEven x \/ y<>0)))))).
+NotEven x =v (x<>0 /\ NotOdd (x-1)).
+NotOdd x =v NotEven (x-1).
+Even x =μ (x=0 \/ Odd (x-1)).
+Odd x =μ Even (x-1).
 Eq x y =μ ((x=0 /\ y=0) \/ (x>0 /\ (y>0 /\ Eq (x-1) (y-1)))).
 Neq x y =v ((x<>0 \/ y<>0) /\ (x<0 \/ (x=0 \/ (y<0 \/ (y=0 \/ Neq (x-1) (y-1)))))).
 Leq x y =μ (x=0 \/ (x>0 /\ (y>0 /\ Leq (x-1) (y-1)))).

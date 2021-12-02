@@ -1,0 +1,5 @@
+%HES
+G  =v ∀ nz.∀ ny.∀ nx.∀ z.∀ y.∀ x.(nz=(nx+ny) \/ FIXPRED1 x y z nx ny nz).
+FIXPRED1 x y z nx ny nz =v ((0 <> 0) \/ FIXPRED1 (x+(-2)) (y+(-2)) (z+(-4)) (nx+(-1)) (ny+(-1)) (nz+(-2))).
+NotShuffle x y z =v NotShuffle y (x-2) (z-2).
+NotLength w n =v NotLength (w-2) (n-1).

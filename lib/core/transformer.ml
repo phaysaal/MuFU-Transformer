@@ -660,7 +660,7 @@ let rec ex_trans_formula s predname newpredname = function
 let reverse_subs p_a f =
   let (p,a) = List.split p_a in
   let p' = List.map H.mk_var p in
-  let a_p = List.combine a p' in
+  let a_p = try List.combine a p' with e -> print_endline "Exception in Reverse_subs"; raise e in
   let f' = List.fold_left (fun f (to_be, by) ->
       U.subs_f to_be by f
              ) f a_p in
@@ -745,7 +745,7 @@ let rec is_atomic = function
 let predicate_for_exists goal =
   let newgoalname = new_predicate_name () in
   let args = List.map H.mk_var goal.H.args in
-  let p_a = List.combine goal.H.args args in
+  let p_a = try List.combine goal.H.args args with e -> print_endline "Exception in predicate for exists"; raise e in
   newgoalname, p_a, args, goal.H.fix
 ;;
 
@@ -975,7 +975,7 @@ let substitute_args to_be by (args : hfl list) =
     raise (StrangeSituation "tobe <> by in substitution")
   else
     let temps = get_temps_n (List.length to_be) in
-    let subs_pair1 = List.combine to_be (List.map H.mk_var temps) in
+    let subs_pair1 = try List.combine to_be (List.map H.mk_var temps) with e -> print_endline "substitute args"; raise e in
     let subs_pair2 = List.combine temps by in
     let subs_arg (arg:hfl) ((to_be:string), (by:hfl)) : hfl = U.subs_var to_be by arg |> AP.normalize in
     List.map (fun arg ->
@@ -1539,7 +1539,7 @@ let get_size_change_graph defs_map : ((bytes * (hfl * int * hfl) list)) D.t =
       let predcall = List.hd predcalls in
       let (pred, args) = U.explode_pred predcall in
       let pars = (D.find pred defs_map).H.args |> List.map H.mk_var in
-      let p_a = List.combine pars args in
+      let p_a = try List.combine pars args with e -> P.pp_list P.pp_formula pars |> P.dbg "pars"; P.pp_list P.pp_formula args |> P.dbg "args"; raise e in
       (pred, List.fold_left
                (fun acc p ->
                  let p' = H.mk_var p in
@@ -1927,10 +1927,10 @@ let is_unfolding_candidate transformer splitter joiner goal defs_map f deltas (s
   let pp = (fun (i, (pn, args)) -> (string_of_int i) ^ "." ^ pn ^ "(" ^ P.pp_list P.pp_formula args ^ ")") in
   P.pp_list pp src |> P.dbg "src";
   P.pp_list pp dest |> P.dbg "dest";
-  let src_dest = List.combine src dest in
+  let src_dest = try List.combine src dest with e -> print_endline "is_unfolding_candidate"; raise e  in
   let get_next a args =
     let pred = D.find a defs_map in
-    let param_args = List.combine pred.H.args args in
+    let param_args = try List.combine pred.H.args args with e -> print_endline "is_unfolding_candidate(2)"; raise e  in
     let pred_calls = pred.H.body |> get_predicates in
     if List.length pred_calls = 1 then
       let pred_call = List.hd pred_calls in

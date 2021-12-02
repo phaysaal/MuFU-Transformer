@@ -1,0 +1,5 @@
+%HES
+G  =v ∀ y.∀ x.∀ ys.∀ xs.FIXPRED1 xs ys x y.
+FIXPRED1 xs ys x y =v (((((x+y)=0 \/ FIXPRED1 xs (ys+(-1)) x (y+(-1))) /\ ((xs+ys)=0 \/ FIXPRED1 xs (ys+(-1)) x (y+(-1)))) /\ (DLen xs x \/ (ys<>0 \/ (y<>0 \/ ((x+y)=0 \/ Len ((xs+ys)-1) ((x+y)-1)))))) /\ (DLen xs x \/ (ys<>0 \/ (y<>0 \/ ((xs+ys)=0 \/ Len ((xs+ys)-1) ((x+y)-1)))))).
+Len x y =v ((x=0 /\ y=0) \/ Len (x-1) (y-1)).
+DLen x y =v ((x<>0 \/ y<>0) /\ DLen (x-1) (y-1)).

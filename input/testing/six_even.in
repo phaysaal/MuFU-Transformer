@@ -1,0 +1,6 @@
+%HES
+
+Q n =v DDiv6 n \/ Even n.
+Even x =μ x=0 \/ Odd (x-1).
+Odd y =μ Even (y-1).
+DDiv6 z =v z<>0 /\ DDiv6 (z-6).

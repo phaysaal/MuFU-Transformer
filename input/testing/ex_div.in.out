@@ -1,0 +1,6 @@
+%HES
+Q  =v ∀ n.FIXPRED1 n.
+FIXPRED1 n =v ((((n=0 \/ FIXPRED1 (n+(-6))) /\ (NDiv2 (((n-2)-2)-2) \/ ((n+(-3))<>0 \/ (n=0 \/ Div6 (n-6))))) /\ ((n+(-4))<>0 \/ (NDiv3 ((n-3)-3) \/ (n=0 \/ Div6 (n-6))))) /\ ((n+(-2))<>0 \/ (NDiv3 ((n-3)-3) \/ (n=0 \/ Div6 (n-6))))).
+NDiv2 p =v (p<>0 /\ NDiv2 (p-2)).
+NDiv3 q =v (q<>0 /\ NDiv3 (q-3)).
+Div6 r =v (r=0 \/ Div6 (r-6)).

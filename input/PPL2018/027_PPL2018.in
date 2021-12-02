@@ -3,7 +3,7 @@
 /*
 	Odd(x), Odd(y) -> Odd(x+y)
 */
-G x y =v (NotOdd x \/ NotOdd y) \/ ∃ z.(Plus x y z /\ Even z). 
+G x y =v (NotOdd x \/ NotOdd y) \/ Even (x+y). 
 
 NotEven x =v x <> 0 /\ NotOdd (x-1).
 NotOdd x =v NotEven (x-1).

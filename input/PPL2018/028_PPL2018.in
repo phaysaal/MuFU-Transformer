@@ -2,10 +2,12 @@
 
 /*
  even(plus(x,y)) ~ false, even(x) ~ true -> even(y) ~ false
+
+Plus x y z /\ NotEven z /\ Even x -> NotEven y 
 */
 
 
-G x y z =v ((Plus x y z /\ Even z) \/ NotEven x) \/ Even y.
+G x y z =v ((Dplus x y z \/ Even (x+y)) \/ NotEven x) \/ NotEven y.
 
 NotEven x =v x <> 0 /\ NotOdd (x-1).
 NotOdd x =v NotEven (x-1).

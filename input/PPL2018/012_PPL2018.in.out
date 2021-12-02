@@ -1,6 +1,6 @@
 %HES
 G  =v ∀ w.∀ z.∀ y.∀ x.((FIXPRED1 x y z w \/ DS 0 z) \/ Neq w 0).
-FIXPRED1 x y z w =v ((x<>w \/ (z<>0 \/ Eq x y)) /\ ((z=0 \/ z<0) \/ FIXPRED1 x y (z+(-1)) (w+(-1)))).
+FIXPRED1 x y z w =v (((z<0 \/ z=0) \/ FIXPRED1 x y (z+(-1)) (w+(-1))) /\ (z<>0 \/ (x<>w \/ Eq x y))).
 Eq x y =μ ((x=0 /\ y=0) \/ (x>0 /\ (y>0 /\ Eq (x-1) (y-1)))).
 Neq x y =v ((x<>0 \/ y<>0) /\ (x<0 \/ (x=0 \/ (y<0 \/ (y=0 \/ Neq (x-1) (y-1)))))).
 Leq x y =μ (x=0 \/ ((x=0 /\ y=0) \/ (x>0 /\ (y>0 /\ Leq (x-1) (y-1))))).
