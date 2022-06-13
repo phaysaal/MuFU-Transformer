@@ -9,4 +9,4 @@ https://dl.acm.org/doi/10.1007/978-3-030-99461-7_3
 dune build
 
 ## Execution
-dune exec mufu <filename>
+dune exec mufu 'filename'
