@@ -6,8 +6,9 @@
    logs.fmt
    lwt
    lwt.unix
-   core))
-
+   core)
+	  (preprocess (pps ppx_inline_test ppx_expect)))
+		
 (env
   (dev
     (flags (:standard -warn-error -A))))

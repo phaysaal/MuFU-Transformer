@@ -26,7 +26,7 @@ let make_head rule =
   newrule
 ;;
 
-let transform (hes : H.hes) env : bytes =
+let transform (hes : H.hes) env : string =
   let aux, goals = Seperator.seperate_goal_and_defs hes in
   let goal = List.hd goals in
   print_seperation aux goal;

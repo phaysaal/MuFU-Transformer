@@ -201,7 +201,7 @@ module Fn = struct
   let assert_no_exn f =
     try f () with e -> print_endline (Exn.to_string e); assert false
 
-  let run_command ?(timeout=20.0) cmd =
+  (* let run_command ?(timeout=20.0) cmd =
     let f_out, fd_out = Unix.mkstemp "/tmp/run_command.stdout" in
     let f_err, fd_err = Unix.mkstemp "/tmp/run_command.stderr" in
     let process_status = Lwt_main.run @@
@@ -216,7 +216,8 @@ module Fn = struct
     Unix.remove f_out;
     Unix.remove f_err;
     (process_status, stdout, stderr)
-
+   *)
+                       
   class counter = object
     val mutable cnt = 0
     method tick =

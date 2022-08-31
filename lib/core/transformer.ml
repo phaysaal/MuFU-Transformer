@@ -1522,7 +1522,7 @@ let graphed_unfold_fold1 transformer goal defs_map f =
 
 
 
-let get_size_change_graph defs_map : ((bytes * (hfl * int * hfl) list)) D.t =
+let get_size_change_graph defs_map : ((string * (hfl * int * hfl) list)) D.t =
   let is_const = function
       H.Int _ ->
        true
@@ -1678,7 +1678,7 @@ let get_perm fvs grp_map ls =
     List.mem nmy (D.find nm grp_map)
   in
 
-  let ls' : (int * (bytes * hfl list)) list = List.mapi (fun i l -> (i,l)) ls in
+  let ls' : (int * (string * hfl list)) list = List.mapi (fun i l -> (i,l)) ls in
   let fvs' = List.map (fun fv -> fv ^ "'") fvs in
   let fvs'' = List.map (fun fv -> H.mk_var fv) fvs' in
   let ls'' = List.map (fun (i, (pn, p_args)) -> (i, (pn, List.map (subs_vars fvs fvs'') p_args))) ls' in
@@ -1686,9 +1686,9 @@ let get_perm fvs grp_map ls =
     match xs with
     [] -> [[]]
   | x::xs ->
-     let perms : (int * (bytes * hfl list)) list list = aux xs in
+     let perms : (int * (string * hfl list)) list list = aux xs in
      let res = List.map
-       (fun (p: (int * (bytes * hfl list)) list) ->
+       (fun (p: (int * (string * hfl list)) list) ->
          List.fold_left (fun acc ((li, (lPn,_)) as l) ->
              (* if is_same_grp x l then *)
              if not (is_same_grp x lPn) || List.exists (fun (pi,_) -> li=pi) p then
@@ -1701,7 +1701,7 @@ let get_perm fvs grp_map ls =
      res |> List.concat
   in
   
-  let res : (int * (bytes * hfl list)) list list = (* List.map (fun x -> List.map snd x) *) (aux ls') in
+  let res : (int * (string * hfl list)) list list = (* List.map (fun x -> List.map snd x) *) (aux ls') in
   string_of_int (List.length res) |> P.dbg "Len";
   
   res, ls', fvs'
@@ -1822,7 +1822,7 @@ let get_optimized_constraints defs_map f (deltas : (int * 'a) D.t) =
 ;;
 
 
-let get_general_constrains defs_map f deltas =
+let get_general_constrains _ f _ =
   let preds_f = get_predicates f in
   H.Pred (Formula.Eq, [H.Int 0;H.Int 0]),[],[],D.empty
 ;;
@@ -2435,7 +2435,7 @@ let rec no_const = function
 
 let unfold_fold_common transformer goal defs_map f splitter joiner =
   let xs = splitter f in
-  let xs', rest = List.partition no_const xs in
+  let xs', _ = List.partition no_const xs in
   let f' = joiner xs' in
 
   P.pp_rule goal |> P.dbg "RULE";

@@ -68,15 +68,16 @@ let merges : ('annot -> 'annot -> 'annot) -> 'annot ty list -> 'annot ty =
 (* Abstraction Type *)
 
 type abstraction_ty = Formula.t list ty
-  [@@deriving eq,ord,show,iter,map,fold,sexp]
+                        [@@deriving eq,ord,show,iter,map,fold,sexp]
 type abstraction_argty = abstraction_ty arg
-  [@@deriving eq,ord,show,iter,map,fold,sexp]
+                           [@@deriving eq,ord,show,iter,map,fold,sexp]
 
-type abstracted_ty =
-  | ATyBool
-  | ATyArrow of abstracted_argty * abstracted_ty
+type abstracted_ty = ATyBool | ATyArrow of abstracted_ty * abstracted_ty
+                                                             [@@deriving eq,ord,show,iter,map,fold,sexp]
+       
+(* type abstracted_ty = ATyBool | ATyArrow of abstracted_argty * abstracted_ty
 and abstracted_argty = abstracted_ty
-  [@@deriving eq,ord,show,iter,map,fold,sexp]
+                         [@@deriving eq,ord,show,iter,map,fold,sexp] *)
 
 let rec abstract : abstraction_ty -> abstracted_ty = function
   | TyBool preds ->

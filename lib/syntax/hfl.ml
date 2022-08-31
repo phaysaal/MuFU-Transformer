@@ -10,7 +10,7 @@ type t =
    * TODO It may be better to devide constructors *)
   | Or   of t list * [ `Original | `Inserted ]
   | And  of t list * [ `Original | `Inserted ]
-  | Abs  of abstracted_argty Id.t * t
+  | Abs  of abstracted_ty Id.t * t
   | App  of t * t
   [@@deriving eq,ord,show,iter,map,fold,sexp]
 

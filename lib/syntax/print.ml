@@ -216,7 +216,7 @@ let rec abstracted_ty_ : Prec.t -> Type.abstracted_ty Fmt.t =
           (abstracted_ty_ Prec.(succ arrow)) arg
           (abstracted_ty_ Prec.arrow) ret
 let abstracted_ty : Type.abstracted_ty Fmt.t = abstracted_ty_ Prec.zero
-let abstracted_argty : Type.abstracted_argty Fmt.t = abstracted_ty
+let abstracted_argty : Type.abstracted_ty Fmt.t = abstracted_ty
 
 (* Fixpoint *)
 
