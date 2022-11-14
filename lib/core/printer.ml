@@ -4,6 +4,8 @@ module A = Arith
 module F = Formula
 module FP = Fixpoint
 
+exception NotAVar
+
 let print_tags = ref ""
           
 let rec pp_list f ?(sep=",") = function
@@ -32,6 +34,8 @@ let pp_pred = function
   | F.Gt -> ">"
 ;;
 
+
+     
 let rec pp_formula = function
     H.Bool true -> "(0 = 0)"
   | H.Bool false -> "(0 <> 0)"
@@ -46,7 +50,7 @@ let rec pp_formula = function
   | H.Forall (s, f) -> "∀ " ^ s ^ "." ^ pp_formula f
   | H.Exists (s, f) -> "∃" ^ s ^ "." ^ pp_formula f
 ;;
-
+       
 let pp_munu = function
     FP.Least -> "=μ"
   | FP.Greatest -> "=v"
@@ -68,3 +72,9 @@ let dbg tag str =
 let dbgn tag str =
   tag ^ ": " |> print_endline;
   str        |> print_endline;;
+
+let var_to_str = function
+    H.Var s -> s
+  | f ->
+     dbg "ERROR" (pp_formula f);
+     raise NotAVar

@@ -211,7 +211,13 @@ let is_unsat f =
    )
 ;;
 
-
+let neg_str_to_int s =
+  if String.get s 0 = '(' && String.get s 1 = '-' then
+    -(String.sub s 3 (String.length s -4) |> int_of_string) 
+  else
+    failwith "int_of_string"
+     ;;
+     
 let simplify f =
   let cfg = [("model", "true"); ("proof", "false")] in
   let ctx = (mk_context cfg) in
@@ -219,7 +225,7 @@ let simplify f =
   let f' = hflz_to_z3 ctx f in
   let g = mk_goal ctx true false false in
   Goal.add g [f'];
-  Expr.to_string f' |> P.dbg "Goal";
+  (* Expr.to_string f' |> P.dbg "Goal"; *)
   let ar = Tactic.apply (mk_tactic ctx ("simplify")) g None in
   
   let solver = mk_solver ctx None in
@@ -242,7 +248,9 @@ let simplify f =
                            None -> model
                          | Some v ->
                             if Expr.is_numeral v then
-                              (FuncDecl.get_name d |> Symbol.get_string, Expr.to_string v |> int_of_string)::model
+                              let v' = Expr.to_string v in
+                              let i  = try int_of_string v' with Failure _ -> neg_str_to_int v' in
+                              (FuncDecl.get_name d |> Symbol.get_string, i)::model
                             else
                               model
                        ) [] ds
@@ -257,7 +265,7 @@ let solve_model f =
   let f' = hflz_to_z3 ctx f in
   let g = mk_goal ctx true false false in
   Goal.add g [f'];
-  Expr.to_string f' |> P.dbg "Goal";
+  (* Expr.to_string f' |> P.dbg "Goal"; *)
                    
   let ar = Tactic.apply (and_then ctx (mk_tactic ctx ("simplify")) (mk_tactic ctx "solve-eqs") []) g None in
   

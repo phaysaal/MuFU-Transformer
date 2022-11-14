@@ -1669,7 +1669,7 @@ let is_unfolding_candidate transformer splitter joiner goal defs_map f deltas (s
               else
                 
               let n_p' = if unit_delta < 0 then H.mk_op Arith.Mult [n; H.Int (-unit_delta)] else H.mk_op Arith.Mult [c; H.Int unit_delta] in
-              let nc = H.Var (P.var_to_str n ^ x) in
+              let nc = H.Var (P.vr_to_str n ^ x) in
               let a2 = H.mk_op Arith.Mult [nc; c] in  
               let mod_constraint = H.mk_pred Formula.Eq a2 n_p' in
               [mod_constraint]

@@ -1,0 +1,5 @@
+%HES
+Y  =v ∀ y.∀ x.FIXPRED2 x y.
+FIXPRED2 x y =μ (((0 = 0) /\ FIXPRED2 x (y+(-2))) /\ (P x /\ y=1)).
+P x =μ (x=0 \/ (P (x-2) \/ P (x+1))).
+Q y =μ (y=1 \/ Q (y-2)).

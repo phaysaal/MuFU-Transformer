@@ -1,0 +1,40 @@
+let start_analysis max goal defs env =
+  (* let xxxs = permute ['a';'b';'c';'d'] in
+  let xxxx = Stream.npeek 100 xxxs in 
+  List.iter (fun xs -> List.iter (fun y -> print_char y) xs; print_char '\n') xxxx; *)
+  let defs_map = T.make_def_map defs in
+  let alldefs =
+    if are_all_single defs then
+      begin
+        P.dbg "Single-mode" "";
+        let alldefs : H.hes_rule list = T.transform_hes defs goal env in
+        alldefs
+    end
+  else
+    begin
+      P.dbg "Multi-mode" "";
+      let queue = Queue.create () in
+      (* let unfoldeds = unfold_all_pred goal.H.body defs_map in
+      List.iter (fun uf -> Queue.push uf queue) unfoldeds; *)
+      Queue.push goal.H.body queue;
+      (* let max = 2 in *)
+      let res = unfold_until_max_or_matched max queue goal defs_map 0 in
+      match res with
+        Some (r, x, _) ->
+         P.pp_formula x |> P.dbg "@@Matched";
+         P.pp_rule r |> P.dbg "@@New rule";
+         let goal_pred = {H.var=goal.H.var; args=goal.args; fix=goal.fix; body=x} in
+         goal_pred::r::defs
+         
+      | None -> P.dbg "!!! Matched None" ""; failwith "Not folded"
+    end
+  in
+  print_endline "~*~*~*~*~*~*~*~*~*~*~*";    
+  let head = List.hd alldefs |> make_head in
+  let result = head::List.tl alldefs in
+  let outtxt1 = P.pp_list ~sep:"\n" P.pp_rule result in
+
+  let outtxt = "%HES\n" ^ outtxt1 in 
+  outtxt |> P.dbgn "Result";
+
+  outtxt

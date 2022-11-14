@@ -1,0 +1,4 @@
+%HES
+G x =μ NNE x /\ Odd x.
+NNE x =μ x=0 \/ NNE (x+2) \/ NNE (x-2).
+Odd y =μ y=1 \/ Odd (y+2) \/ Odd (y-2).

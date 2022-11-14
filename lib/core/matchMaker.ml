@@ -4,6 +4,7 @@ module P = Printer
 module H = Raw_hflz
 module A = ArithmeticProcessor
 module Z = Z3Interface
+module L = Tools
        
 let counter = ref 0;;
 let newvar () =
@@ -32,7 +33,7 @@ let select_from_one aux fn f f1 =
     f, false
 ;;
 
-let  select_from_list aux fn f fs =
+let select_from_list aux fn f fs =
   let (fs', b) = List.fold_left (fun (fs_acc, b_acc) f ->
                      let (f', b) = aux f in
                      if b then
@@ -68,7 +69,8 @@ let subs_var to_be by f =
      select_from_two aux (fun f1 f2 -> H.mk_app f1 f2) f f1 f2
   | H.Int _ as f -> f, false
   | H.Op (o, f1) as f ->
-     select_from_list aux (fun f' -> H.mk_op o f') f f1
+     let (x,b) = select_from_list aux (fun f' -> H.mk_op o f') f f1 in
+     ArithmeticProcessor.normalize x, b
   | H.Pred (p, f1) as f ->
      H.Pred (p, List.map (fun x -> aux x |> fst) f1) |> A.div_norm, true
   | H.Forall (s, f1) as f ->
@@ -450,26 +452,20 @@ let rec find_matching_direct fix _X (params : string list) f f' =
   P.pp_formula f' |> P.dbgn "Find Matching";
   P.pp_formula f |> P.dbg "to ";
   
-  
   let fn = find_matching_direct fix _X params f in
-  
   let rec aux = function
       H.Or (f1, f2) ->
        let b1, f1' = fn f1 in
        let b2, f2' = fn f2 in
        b1 || b2, H.mk_or f1' f2'
-       
     | H.And (f1, f2) ->
        let b1, f1' = fn f1 in
        let b2, f2' = fn f2 in
        b1 || b2, H.mk_and f1' f2'
-
     | f ->
        false, f
   in
-  
-  let m = unify f f' in
-  
+  let m = unify f f' in  
   match m with
     Some p_a ->
      print_model m;
@@ -517,19 +513,98 @@ let rec find_matching_permutations xs ys : (H.raw_hflz list * H.raw_hflz list) =
        H.App _ | H.Exists _->
         begin
           let pred = pred_name_ex x in
+          P.dbg "### ys: " (P.pp_list P.pp_formula ys); 
           let y_matched, y_non_matched = List.partition (fun p -> (pred_name_ex p) = pred) ys in
           match y_matched with
-            [] -> raise NotMatched 
+            [] ->
+             print_endline "Not ... Matched (1)";
+             raise NotMatched 
           | y::ys' ->
              let (m, u) = find_matching_permutations xs' (ys'@y_non_matched) in
              (y::m, u)
         end
        | _ ->
-          print_endline "Not ... Matched";
+          print_endline "Not ... Matched (2)";
         raise NotMatched
 ;;
 
-let match_compounds fix _X params fn1 fn2 g1 g2 g3 f f' =
+let match_compounds fix _X params conn f f' =
+  let rec get_preds = (function H.App _ -> true | H.Exists (_, f) -> get_preds f | _ -> false) in
+  let is_possible preds_name disjuncts_f' =
+    let preds_name' = List.filter get_preds disjuncts_f' |> List.map pred_name_ex in
+    List.for_all (fun pn -> List.mem pn preds_name') preds_name
+  in
+  
+  begin
+      let disjuncts_f = L.break_at conn f in
+      let pred_f = List.filter get_preds disjuncts_f in
+      let preds_name = List.map pred_name_ex pred_f in
+      let f''' = L.join conn pred_f in
+                
+      P.pp_formula f |> P.dbg "Formula f";
+      P.pp_list P.pp_formula disjuncts_f |> P.dbg "Formula list f";
+      P.pp_list P.pp_formula pred_f |> P.dbg "Pred_f";
+      
+      let conjuncts_f' = L.break_at (L.rev_connective conn) f' in
+      
+      let (b, fs') =
+        List.fold_left (
+            fun (bb, acc) ff' ->
+            P.pp_formula ff' |> P.dbg "Formula ff'";
+            let disjuncts_ff' = L.break_at conn ff' in
+            let preds_ff', non_preds_ff' = List.partition get_preds disjuncts_ff' in
+            P.pp_list P.pp_formula preds_ff' |> P.dbg "Pred_ff'";
+            if is_possible preds_name preds_ff' then
+              try
+                
+                let (matched, unmatched) = find_matching_permutations pred_f preds_ff' in
+                P.pp_list P.pp_formula matched |> P.dbg "matched";
+                
+                let f'' = L.join conn matched in
+                let b, f'''' = 
+                  match find_matching_direct fix _X params f''' f'' with
+                    false, _ -> print_endline "No matching"; false, ff'
+                  | true, r -> print_endline "Matching";
+                               let a = L.join conn (non_preds_ff' @ unmatched) in
+                               true, (L.join conn [a; r])
+                in
+                P.dbg "f'''::" (P.pp_formula f''');
+                b, acc @ [f'''']
+              with
+                NotMatched ->
+                print_endline "No matching";
+                bb, acc @ [ff']
+              | Not_found ->
+                 print_endline "No matching(Not found)";
+                bb, acc @ [ff']
+            else
+              begin
+                false, acc @ [ff']
+              end
+          ) (false, []) conjuncts_f' in 
+       
+      b, (L.join (L.rev_connective conn) fs')
+      
+    end
+;;
+
+let find_matching fix _X (params : string list) f f' =
+ if is_conjunctive f then
+   begin
+     print_endline "Conjunctive";
+     match_compounds fix _X params L._and f f'
+   end
+ else if is_disjunctive f then
+   begin
+     print_endline "Disjunctive";
+     match_compounds fix _X params L._or f f'
+   end
+ else
+   find_matching_direct fix _X params f f'
+;;
+
+(*
+let match_unmatch_compounds fix _X params fn1 fn2 g1 g2 g3 f f' =
   let rec get_preds = (function H.App _ -> true | H.Exists (_, f) -> get_preds f | _ -> false) in
   let is_possible preds_name disjuncts_f' =
     let preds_name' = List.filter get_preds disjuncts_f' |> List.map pred_name_ex in
@@ -582,21 +657,19 @@ let match_compounds fix _X params fn1 fn2 g1 g2 g3 f f' =
     end
 ;;
 
-let find_matching fix _X (params : string list) f f' =
-  
- if is_conjunctive f then
-   begin
-     print_endline "Conjunctive";
-     match_compounds fix _X params get_conjuncts get_disjuncts H.mk_ors H.mk_and H.mk_ands f f'
-   end
- else if is_disjunctive f then
-   begin
-     print_endline "Disjunctive";
-     match_compounds fix _X params get_disjuncts get_conjuncts H.mk_ands H.mk_or H.mk_ors f f'
-   end
- else
-   find_matching_direct fix _X params f f'
+let find_matching_unmatching connective_of_goal _X (params : string list) f f' =
+  if is_conjunctive f then
+    begin
+      match_unmatch_compounds fix _X params get_conjuncts get_disjuncts H.mk_ors H.mk_and H.mk_ands f f'
+    end
+  else if is_disjunctive f then
+    begin
+      match_unmatch_compounds fix _X params get_disjuncts get_conjuncts H.mk_ands H.mk_or H.mk_ors f f'
+    end
+  else
+    find_matching_direct fix _X params f f'
 ;;
+ *)
 
 let subs_eq_pred to_be c d by = function
   | H.Pred (Formula.Eq, a::b::_) ->
@@ -622,7 +695,6 @@ let subs_eq_pred to_be c d by = function
          (* (c1 (by-d) + c*d1) = (c2 (by-d) + c d2) *)
          let a' = fn c by_d a in
          let b' = fn c by_d b in
-         
          (a',b')
        else if ina then
          (* (c1 tobe + d1)[xx:=(by-d)/c] = b *)
@@ -630,12 +702,10 @@ let subs_eq_pred to_be c d by = function
          (* (c1 (by-d) + c*d1) = c*b *)
          let a' = fn c by_d a in
          let b' = H.mk_op Arith.Mult [c;b] in
-         
          (a',b')
        else if inb then
          let a' = H.mk_op Arith.Mult [c;a] in
          let b' = fn c by_d b in
-         
          (a',b')
        else
          (a,b)
@@ -646,30 +716,27 @@ let subs_eq_pred to_be c d by = function
     subs_var to_be by' f
 ;;
     
-let reduce_eq ?(fresh=[]) exc fs =
-  let rec reduce_eq (* exc *) acc = function
+let reduce_eq ?(fresh=[]) fs =
+  let rec reduce_eq acc = function
       [] -> acc
     | (H.Pred (Formula.Eq, a'::b::[]) as x)::xs when List.exists (fun v -> List.mem v fresh) (fv a') ->
        begin
-         (* P.pp_formula x |> P.dbg "x"; *)
          let v = fv a' |> List.hd in
          let (c, d) = A.cx_d v a' in
          let c' = A.list_to_sum c |> A.eval in
          let d' = A.list_to_sum d |> A.eval in
-         (* P.pp_formula c' |> P.dbg "c'";
-         P.pp_formula d' |> P.dbg "d'"; *)
-         (* let b' = H.Op (Arith.Div, [H.Op (Arith.Sub, [b;d']);c']) in *)
+         
          let acc' = List.map (subs_eq_pred v c' d' b) acc in
-         (* P.pp_list P.pp_formula acc' |> P.dbg "acc'"; *)
+         
          let xs' = List.map (subs_eq_pred v c' d' b) xs in
-         (* P.pp_list P.pp_formula xs' |> P.dbg "xs'"; *)
-         reduce_eq (* exc *) acc' xs'
+         
+         reduce_eq acc' xs'
          
        end
     | x::xs ->
-       reduce_eq (* exc *) (x::acc) xs
+       reduce_eq (x::acc) xs
   in
-  reduce_eq (* exc *) [] fs
+  reduce_eq [] fs
 ;;
 
 

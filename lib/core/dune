@@ -2,7 +2,7 @@
  (public_name muFU_core)
  (libraries
 		z3
-   hflmc2_syntax
+		hflmc2_syntax
 	 ) 
  (preprocess (pps ppx_deriving.std ppx_compare ppx_sexp_conv ppx_deriving_cmdliner ppx_let)))
 (env (dev (flags (:standard -warn-error -A -w -3-26-33-39))))

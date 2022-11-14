@@ -1,0 +1,794 @@
+Goal:: 
+G x =μ (M x \/ N x).
+AUX:: 
+M x =μ (x=0 \/ (N (x-2) \/ N (x+1))).
+N y =μ (y=1 \/ (M (y-3) \/ O (y+2))).
+O z =μ (z=2 \/ (M (z-5) \/ (N (z-2) \/ O (z+2)))).
+Regex-mode: 
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+M
+N
+O
+M ->
+*-----*
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+^-----^
+Reducing O
+Original (O(e_{OO0}) \mid N(e_{ON1}))
+gedges:: O(e_{OO0}),N(e_{ON1})
+mt:: O(e_{OO0})
+..........
+unmt: N(e_{ON1})
+....--....
+...............
+MST:: {e_{OO0}}^*
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing N
+Original (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: N(e_{ON1}{e_{OO0}}^*e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+Reduced (N(e_{ON1}{e_{OO0}}^*e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+Reducing N
+Original (N(e_{ON1}{e_{OO0}}^*e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: N(e_{ON1}{e_{OO0}}^*e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: N(e_{ON1}{e_{OO0}}^*e_{NO0})
+..........
+unmt: M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+MST:: (e_{ON1}{e_{OO0}}^*e_{NO0})^*
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+Reducing O
+Original N(e_{ON1}{e_{OO0}}^*)
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+Reducing N
+Original M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+Reducing O
+Original M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+Reducing M
+Original (O(e_{MO0}) \mid N(e_{MN1}))
+gedges:: O(e_{MO0}),N(e_{MN1})
+mt:: 
+..........
+unmt: O(e_{MO0}),N(e_{MN1})
+....--....
+...............
+unmt':: M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}),M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1})
+gedges:: M(((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))
+mt:: M(((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))
+..........
+unmt: 
+....--....
+...............
+MST:: (((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))^*
+Reduced ((((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))^*)
+M = ((((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))^*)
+N = M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+O = M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+M ->
+*-----*
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+^-----^
+Reducing O
+Original (O(e_{OO0}) \mid N(e_{ON1}))
+gedges:: O(e_{OO0}),N(e_{ON1})
+mt:: O(e_{OO0})
+..........
+unmt: N(e_{ON1})
+....--....
+...............
+MST:: {e_{OO0}}^*
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing N
+Original (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: N(e_{ON1}{e_{OO0}}^*e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+Reduced (N(e_{ON1}{e_{OO0}}^*e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+Reducing N
+Original (N(e_{ON1}{e_{OO0}}^*e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: N(e_{ON1}{e_{OO0}}^*e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: N(e_{ON1}{e_{OO0}}^*e_{NO0})
+..........
+unmt: M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+MST:: (e_{ON1}{e_{OO0}}^*e_{NO0})^*
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+Reducing O
+Original N(e_{ON1}{e_{OO0}}^*)
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+Reducing N
+Original M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+Reducing O
+Original M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+Reducing M
+Original (O(e_{MO0}) \mid N(e_{MN1}))
+gedges:: O(e_{MO0}),N(e_{MN1})
+mt:: 
+..........
+unmt: O(e_{MO0}),N(e_{MN1})
+....--....
+...............
+unmt':: M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}),M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1})
+gedges:: M(((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))
+mt:: M(((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))
+..........
+unmt: 
+....--....
+...............
+MST:: (((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))^*
+Reduced ((((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))^*)
+M = ((((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))^*)
+N = M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+O = M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+M ->
+*-----*
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+^-----^
+Reducing O
+Original (O(e_{OO0}) \mid N(e_{ON1}))
+gedges:: O(e_{OO0}),N(e_{ON1})
+mt:: O(e_{OO0})
+..........
+unmt: N(e_{ON1})
+....--....
+...............
+MST:: {e_{OO0}}^*
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing N
+Original (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: N(e_{ON1}{e_{OO0}}^*e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+Reduced (N(e_{ON1}{e_{OO0}}^*e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+Reducing N
+Original (N(e_{ON1}{e_{OO0}}^*e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: N(e_{ON1}{e_{OO0}}^*e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: N(e_{ON1}{e_{OO0}}^*e_{NO0})
+..........
+unmt: M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+MST:: (e_{ON1}{e_{OO0}}^*e_{NO0})^*
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+Reducing O
+Original N(e_{ON1}{e_{OO0}}^*)
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+Reducing N
+Original M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+Reducing O
+Original M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+Reduced M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+Reducing M
+Original (O(e_{MO0}) \mid N(e_{MN1}))
+gedges:: O(e_{MO0}),N(e_{MN1})
+mt:: 
+..........
+unmt: O(e_{MO0}),N(e_{MN1})
+....--....
+...............
+unmt':: M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}),M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1})
+gedges:: M(((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))
+mt:: M(((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))
+..........
+unmt: 
+....--....
+...............
+MST:: (((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))^*
+Reduced ((((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))^*)
+M = ((((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*e_{MO0}\mid (e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{MN1}))^*)
+N = M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*)
+O = M((e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*e_{ON1}{e_{OO0}}^*)
+N ->
+*-----*
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+^-----^
+Reducing O
+Original (O(e_{OO0}) \mid N(e_{ON1}))
+gedges:: O(e_{OO0}),N(e_{ON1})
+mt:: O(e_{OO0})
+..........
+unmt: N(e_{ON1})
+....--....
+...............
+MST:: {e_{OO0}}^*
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing M
+Original (O(e_{MO0}) \mid N(e_{MN1}))
+gedges:: O(e_{MO0}),N(e_{MN1})
+mt:: 
+..........
+unmt: O(e_{MO0}),N(e_{MN1})
+....--....
+...............
+unmt':: N(e_{ON1}{e_{OO0}}^*e_{MO0}),N(e_{MN1})
+Reduced (N(e_{ON1}{e_{OO0}}^*e_{MO0}) \mid N(e_{MN1}))
+Reducing M
+Original (N(e_{ON1}{e_{OO0}}^*e_{MO0}) \mid N(e_{MN1}))
+gedges:: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+mt:: 
+..........
+unmt: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+....--....
+...............
+unmt':: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+Reduced (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+Reducing O
+Original N(e_{ON1}{e_{OO0}}^*)
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing M
+Original (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+gedges:: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+mt:: 
+..........
+unmt: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+....--....
+...............
+unmt':: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+Reduced (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+Reducing O
+Original N(e_{ON1}{e_{OO0}}^*)
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing N
+Original (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: N(e_{ON1}{e_{OO0}}^*e_{NO0}),(N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})))
+gedges:: N(e_{ON1}{e_{OO0}}^*e_{NO0}),(N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})))
+mt:: N(e_{ON1}{e_{OO0}}^*e_{NO0})
+..........
+unmt: (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+MST:: (e_{ON1}{e_{OO0}}^*e_{NO0})^*
+Reduced (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*))
+M = (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+N = (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*))
+O = N(e_{ON1}{e_{OO0}}^*)
+N ->
+*-----*
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+^-----^
+Reducing O
+Original (O(e_{OO0}) \mid N(e_{ON1}))
+gedges:: O(e_{OO0}),N(e_{ON1})
+mt:: O(e_{OO0})
+..........
+unmt: N(e_{ON1})
+....--....
+...............
+MST:: {e_{OO0}}^*
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing M
+Original (O(e_{MO0}) \mid N(e_{MN1}))
+gedges:: O(e_{MO0}),N(e_{MN1})
+mt:: 
+..........
+unmt: O(e_{MO0}),N(e_{MN1})
+....--....
+...............
+unmt':: N(e_{ON1}{e_{OO0}}^*e_{MO0}),N(e_{MN1})
+Reduced (N(e_{ON1}{e_{OO0}}^*e_{MO0}) \mid N(e_{MN1}))
+Reducing M
+Original (N(e_{ON1}{e_{OO0}}^*e_{MO0}) \mid N(e_{MN1}))
+gedges:: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+mt:: 
+..........
+unmt: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+....--....
+...............
+unmt':: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+Reduced (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+Reducing O
+Original N(e_{ON1}{e_{OO0}}^*)
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing M
+Original (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+gedges:: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+mt:: 
+..........
+unmt: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+....--....
+...............
+unmt':: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+Reduced (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+Reducing O
+Original N(e_{ON1}{e_{OO0}}^*)
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing N
+Original (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: N(e_{ON1}{e_{OO0}}^*e_{NO0}),(N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})))
+gedges:: N(e_{ON1}{e_{OO0}}^*e_{NO0}),(N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})))
+mt:: N(e_{ON1}{e_{OO0}}^*e_{NO0})
+..........
+unmt: (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+MST:: (e_{ON1}{e_{OO0}}^*e_{NO0})^*
+Reduced (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*))
+M = (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+N = (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*))
+O = N(e_{ON1}{e_{OO0}}^*)
+N ->
+*-----*
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+^-----^
+Reducing O
+Original (O(e_{OO0}) \mid N(e_{ON1}))
+gedges:: O(e_{OO0}),N(e_{ON1})
+mt:: O(e_{OO0})
+..........
+unmt: N(e_{ON1})
+....--....
+...............
+MST:: {e_{OO0}}^*
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing M
+Original (O(e_{MO0}) \mid N(e_{MN1}))
+gedges:: O(e_{MO0}),N(e_{MN1})
+mt:: 
+..........
+unmt: O(e_{MO0}),N(e_{MN1})
+....--....
+...............
+unmt':: N(e_{ON1}{e_{OO0}}^*e_{MO0}),N(e_{MN1})
+Reduced (N(e_{ON1}{e_{OO0}}^*e_{MO0}) \mid N(e_{MN1}))
+Reducing M
+Original (N(e_{ON1}{e_{OO0}}^*e_{MO0}) \mid N(e_{MN1}))
+gedges:: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+mt:: 
+..........
+unmt: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+....--....
+...............
+unmt':: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+Reduced (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+Reducing O
+Original N(e_{ON1}{e_{OO0}}^*)
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing M
+Original (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+gedges:: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+mt:: 
+..........
+unmt: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+....--....
+...............
+unmt':: N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1}))
+Reduced (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+Reducing O
+Original N(e_{ON1}{e_{OO0}}^*)
+Reduced N(e_{ON1}{e_{OO0}}^*)
+Reducing N
+Original (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: N(e_{ON1}{e_{OO0}}^*e_{NO0}),(N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})))
+gedges:: N(e_{ON1}{e_{OO0}}^*e_{NO0}),(N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})))
+mt:: N(e_{ON1}{e_{OO0}}^*e_{NO0})
+..........
+unmt: (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+MST:: (e_{ON1}{e_{OO0}}^*e_{NO0})^*
+Reduced (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*))
+M = (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})))
+N = (N((e_{ON1}{e_{OO0}}^*e_{MO0}\mid e_{MN1})(e_{NM1}\mid e_{NM2})(e_{ON1}{e_{OO0}}^*e_{NO0})^*))
+O = N(e_{ON1}{e_{OO0}}^*)
+O ->
+*-----*
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+^-----^
+Reducing M
+Original (O(e_{MO0}) \mid N(e_{MN1}))
+gedges:: O(e_{MO0}),N(e_{MN1})
+mt:: 
+..........
+unmt: O(e_{MO0}),N(e_{MN1})
+....--....
+...............
+unmt':: O(e_{MO0}),(O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}))
+Reduced (O(e_{MO0}) \mid (O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1})))
+Reducing N
+Original (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+Reduced (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+Reducing M
+Original (O(e_{MO0}) \mid (O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1})))
+gedges:: O(e_{MO0}),(O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}))
+mt:: 
+..........
+unmt: O(e_{MO0}),(O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}))
+....--....
+...............
+gedges:: O(e_{NO0}e_{MN1}),M((e_{NM1}\mid e_{NM2})e_{MN1})
+mt:: M((e_{NM1}\mid e_{NM2})e_{MN1})
+..........
+unmt: O(e_{NO0}e_{MN1})
+....--....
+...............
+MST:: ((e_{NM1}\mid e_{NM2})e_{MN1})^*
+unmt':: O(e_{MO0}),O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*)
+Reduced (O(e_{MO0}) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+Reducing N
+Original (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+gedges:: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+mt:: 
+..........
+unmt: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+....--....
+...............
+gedges:: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+mt:: 
+..........
+unmt: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+gedges:: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+unmt':: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+unmt':: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+Reduced (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))))
+Reducing M
+Original (O(e_{MO0}) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+gedges:: O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+mt:: 
+..........
+unmt: O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+....--....
+...............
+unmt':: O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+Reduced (O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*)))
+Reducing N
+Original (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))))
+gedges:: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+mt:: 
+..........
+unmt: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+....--....
+...............
+gedges:: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+mt:: 
+..........
+unmt: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+....--....
+...............
+gedges:: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+mt:: 
+..........
+unmt: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+gedges:: O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+mt:: 
+..........
+unmt: O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+unmt':: O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+unmt':: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+unmt':: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+unmt':: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))))
+Reduced (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))))
+Reducing O
+Original (O(e_{OO0}) \mid N(e_{ON1}))
+gedges:: O(e_{OO0}),N(e_{ON1})
+mt:: O(e_{OO0})
+..........
+unmt: N(e_{ON1})
+....--....
+...............
+MST:: {e_{OO0}}^*
+Reduced (O(e_{NO0}e_{ON1}{e_{OO0}}^*) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))e_{ON1}{e_{OO0}}^*)))))
+M = (O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*)))
+N = (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))))
+O = (O(e_{NO0}e_{ON1}{e_{OO0}}^*) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))e_{ON1}{e_{OO0}}^*)))))
+O ->
+*-----*
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+^-----^
+Reducing M
+Original (O(e_{MO0}) \mid N(e_{MN1}))
+gedges:: O(e_{MO0}),N(e_{MN1})
+mt:: 
+..........
+unmt: O(e_{MO0}),N(e_{MN1})
+....--....
+...............
+unmt':: O(e_{MO0}),(O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}))
+Reduced (O(e_{MO0}) \mid (O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1})))
+Reducing N
+Original (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+Reduced (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+Reducing M
+Original (O(e_{MO0}) \mid (O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1})))
+gedges:: O(e_{MO0}),(O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}))
+mt:: 
+..........
+unmt: O(e_{MO0}),(O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}))
+....--....
+...............
+gedges:: O(e_{NO0}e_{MN1}),M((e_{NM1}\mid e_{NM2})e_{MN1})
+mt:: M((e_{NM1}\mid e_{NM2})e_{MN1})
+..........
+unmt: O(e_{NO0}e_{MN1})
+....--....
+...............
+MST:: ((e_{NM1}\mid e_{NM2})e_{MN1})^*
+unmt':: O(e_{MO0}),O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*)
+Reduced (O(e_{MO0}) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+Reducing N
+Original (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+gedges:: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+mt:: 
+..........
+unmt: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+....--....
+...............
+gedges:: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+mt:: 
+..........
+unmt: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+gedges:: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+unmt':: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+unmt':: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+Reduced (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))))
+Reducing M
+Original (O(e_{MO0}) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+gedges:: O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+mt:: 
+..........
+unmt: O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+....--....
+...............
+unmt':: O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+Reduced (O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*)))
+Reducing N
+Original (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))))
+gedges:: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+mt:: 
+..........
+unmt: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+....--....
+...............
+gedges:: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+mt:: 
+..........
+unmt: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+....--....
+...............
+gedges:: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+mt:: 
+..........
+unmt: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+gedges:: O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+mt:: 
+..........
+unmt: O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+unmt':: O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+unmt':: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+unmt':: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+unmt':: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))))
+Reduced (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))))
+Reducing O
+Original (O(e_{OO0}) \mid N(e_{ON1}))
+gedges:: O(e_{OO0}),N(e_{ON1})
+mt:: O(e_{OO0})
+..........
+unmt: N(e_{ON1})
+....--....
+...............
+MST:: {e_{OO0}}^*
+Reduced (O(e_{NO0}e_{ON1}{e_{OO0}}^*) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))e_{ON1}{e_{OO0}}^*)))))
+M = (O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*)))
+N = (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))))
+O = (O(e_{NO0}e_{ON1}{e_{OO0}}^*) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))e_{ON1}{e_{OO0}}^*)))))
+O ->
+*-----*
+M = (O(e_{MO0}) \mid N(e_{MN1}))
+N = (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+O = (O(e_{OO0}) \mid N(e_{ON1}))
+^-----^
+Reducing M
+Original (O(e_{MO0}) \mid N(e_{MN1}))
+gedges:: O(e_{MO0}),N(e_{MN1})
+mt:: 
+..........
+unmt: O(e_{MO0}),N(e_{MN1})
+....--....
+...............
+unmt':: O(e_{MO0}),(O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}))
+Reduced (O(e_{MO0}) \mid (O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1})))
+Reducing N
+Original (O(e_{NO0}) \mid M((e_{NM1}\mid e_{NM2})))
+gedges:: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}),M((e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+Reduced (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+Reducing M
+Original (O(e_{MO0}) \mid (O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1})))
+gedges:: O(e_{MO0}),(O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}))
+mt:: 
+..........
+unmt: O(e_{MO0}),(O(e_{NO0}e_{MN1}) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}))
+....--....
+...............
+gedges:: O(e_{NO0}e_{MN1}),M((e_{NM1}\mid e_{NM2})e_{MN1})
+mt:: M((e_{NM1}\mid e_{NM2})e_{MN1})
+..........
+unmt: O(e_{NO0}e_{MN1})
+....--....
+...............
+MST:: ((e_{NM1}\mid e_{NM2})e_{MN1})^*
+unmt':: O(e_{MO0}),O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*)
+Reduced (O(e_{MO0}) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+Reducing N
+Original (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+gedges:: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+mt:: 
+..........
+unmt: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+....--....
+...............
+gedges:: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+mt:: 
+..........
+unmt: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+gedges:: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))
+mt:: 
+..........
+unmt: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),M((e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))
+....--....
+...............
+unmt':: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+unmt':: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+unmt':: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+Reduced (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))))
+Reducing M
+Original (O(e_{MO0}) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+gedges:: O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+mt:: 
+..........
+unmt: O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+....--....
+...............
+unmt':: O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*))
+Reduced (O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*)))
+Reducing N
+Original (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))))
+gedges:: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+mt:: 
+..........
+unmt: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+....--....
+...............
+gedges:: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+mt:: 
+..........
+unmt: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+....--....
+...............
+gedges:: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+mt:: 
+..........
+unmt: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})) \mid O(e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+gedges:: O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+mt:: 
+..........
+unmt: O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+....--....
+...............
+unmt':: O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))
+unmt':: O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})),(O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))
+unmt':: O(e_{MO0}(e_{NM1}\mid e_{NM2})),(O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))
+unmt':: O(e_{NO0}),(O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))))))
+Reduced (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))))
+Reducing O
+Original (O(e_{OO0}) \mid N(e_{ON1}))
+gedges:: O(e_{OO0}),N(e_{ON1})
+mt:: O(e_{OO0})
+..........
+unmt: N(e_{ON1})
+....--....
+...............
+MST:: {e_{OO0}}^*
+Reduced (O(e_{NO0}e_{ON1}{e_{OO0}}^*) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))e_{ON1}{e_{OO0}}^*)))))
+M = (O((e_{MO0}\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*)))
+N = (O(e_{NO0}) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})))))))
+O = (O(e_{NO0}e_{ON1}{e_{OO0}}^*) \mid (O(e_{MO0}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O(e_{NO0}e_{MN1}(e_{NM1}\mid e_{NM2})e_{ON1}{e_{OO0}}^*) \mid (O((e_{MO0}(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2})\mid e_{NO0}e_{MN1}((e_{NM1}\mid e_{NM2})e_{MN1})^*(e_{NM1}\mid e_{NM2})e_{MN1}(e_{NM1}\mid e_{NM2}))e_{ON1}{e_{OO0}}^*)))))
+~*~*~*~*~*~*~*~*~*~*~*
+Result: 
+%HES
+M  =v ∀ x.(x=0 \/ (N (x-2) \/ N (x+1))).
+N y =μ (y=1 \/ (M (y-3) \/ O (y+2))).
+O z =μ (z=2 \/ (M (z-5) \/ (N (z-2) \/ O (z+2)))).
+OK

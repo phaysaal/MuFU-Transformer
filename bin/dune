@@ -1,7 +1,7 @@
 (executables
  (names main)
  (modules main)
- (libraries muFU))
+ (libraries muFU hflmc2_options))
 (install
  (package muFU)
  (section bin)

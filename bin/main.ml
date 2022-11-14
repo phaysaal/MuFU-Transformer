@@ -1,6 +1,6 @@
 let () =
   let file =
-    match MuFU.Options.parse() with
+    match Hflmc2_options.parse() with
     | Some (`File file) -> file
     | Some `Stdin ->
         let tmp_file = Filename.temp_file "stdin-" ".in" in

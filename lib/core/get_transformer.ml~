@@ -1,0 +1,12 @@
+
+let transform defs rule =
+  let rule_name = in
+  let rule_body = in
+  let size_change_graph = in
+  let reg_ex = in
+  let summary_information = in
+  let constraints = in
+  let valuation = in
+  let unfolded_formula = in
+  let transformed_formula = in
+  transformed_formula

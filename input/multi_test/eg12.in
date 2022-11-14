@@ -1,0 +1,5 @@
+%HES
+X x =μ P x \/ Q x.
+P x =μ R (x).
+Q y =μ y=1 \/ Q (y-2).
+R z =μ x=0 \/ P (z-2) \/ P (z+1).

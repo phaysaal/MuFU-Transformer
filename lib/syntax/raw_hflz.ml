@@ -33,7 +33,6 @@ let mk_exists var body = Exists(var, body)
                        
 let mk_forall var body = Forall(var, body)
 
-
 let mk_ands = function
   | [] -> Bool true
   | x::xs -> List.fold_left xs ~init:x ~f:(fun a b -> And(a,b))

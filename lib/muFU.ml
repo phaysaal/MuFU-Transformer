@@ -1,8 +1,6 @@
 open Core
    
 module Syntax      = Hflmc2_syntax
-module Options     = Hflmc2_options
-(* module Util        = Hflmc2_util *)
 module MuFU        = MuFU_core
 
 let parse_to_raw_hes file =
