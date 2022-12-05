@@ -1,7 +1,7 @@
 open Hflmc2_syntax
    
 module H = Raw_hflz
-module T = Transformer
+(* module T = Transformer *)
 module P = Printer
 module S = Set.Make(Int)
 module U = MatchMaker
@@ -10,6 +10,7 @@ module AP = ArithmeticProcessor
 module D = Map.Make(String)
 module RH = Regex_handler
 module Z = Z3Interface
+module C = UFCommon
          
 let _or = 0
 let _and = 1
@@ -70,9 +71,9 @@ let rec formula_to_raw = function
 
 let rec nf connective_of_goal formula =
   if connective_of_goal = L._and then
-    T.dnf_of_formula formula
+    C.dnf_of_formula formula
   else if connective_of_goal = L._or then
-    T.cnf_of_formula formula
+    C.cnf_of_formula formula
   else if connective_of_goal = L._exists then
     nf_of_exists connective_of_goal formula
   else
@@ -84,14 +85,6 @@ and nf_of_exists connective_of_goal = function
 ;;
 
     
-let make_head rule =
-  let args = rule.H.args in
-  let var = rule.H.var in
-  let body = List.fold_left (fun body arg -> H.mk_forall arg body) rule.H.body args in
-  let newrule = {H.var=var; args=[]; fix=Fixpoint.Greatest; body=body} in
-  newrule
-;;
-
 let print_size_change_graph graph =
   let print_edge v = (fun (xx,l) ->
       Printf.printf "edge: %s ->" v;
@@ -154,30 +147,41 @@ let mk_reg_ex gnfas dest src =
 
 let mk_constrained_regex regex =
     let m = RH.R.newvar () in
-    let regex' = RH.R.simplify_alter regex in
+    let regex' = RH.R.simplify_alter regex in (** alter list to alter tuple *)
     let cons_regex, constraints , bookmarks = regex' |> RH.R.straight m [] in
     let constraints' = RH.R.mk_and constraints (RH.R.eq m RH.R.one) in
     cons_regex, constraints', (regex', m, bookmarks)
 ;;
 
-let subs_edge _ y (_, f, _) =
+let rec to_prime = function
+    H.Var s -> H.Var (s ^ "'")
+  | H.Int _ as i -> i
+  | H.Op (op, xs) -> H.Op (op, List.map to_prime xs)
+  | x -> x
+
+let subs_edge _ y (_, f, _) g =
   (* let a' = if x = a then y else a in
   let b' = if x = b then y else a in
   (a', f, b') *)
-  let v : string list = T.fv y in
+  let v = to_prime g in
   (v, RH.R.add y f)
+
   
-let mk_subs_summary defs_map src summary =
+let mk_subs_summary defs_map pr_goals src summary =
+  let matching_args xs ys =
+    (List.map U.fv xs |> List.concat |> List.sort String.compare) = (List.map U.fv ys |> List.concat |> List.sort String.compare)
+  in
   let (pred, args) = U.explode_pred src in
+  let (_, gl_args) = List.map U.explode_pred pr_goals |> List.find (fun (a,args') -> a=pred && matching_args args args') in
   let params = (D.find pred defs_map).H.args in
-  let rec aux ps rs ss =
-    match ps, rs, ss with
-      [], [], [] -> []
-    | p::ps', r::rs', s::ss' ->
-       subs_edge p r s::aux ps' rs' ss'
+  let rec aux ps rs ss gl_args =
+    match ps, rs, ss, gl_args with
+      [], [], [], [] -> []
+    | p::ps', r::rs', s::ss', g::gs ->
+       subs_edge p r s g::aux ps' rs' ss' gs
     | _ -> raise (Strange "Param, Arg, Summary dimension does not match")
   in
-  aux params args summary
+  aux params args summary gl_args
 ;;
 
 let mk_eq a b =
@@ -187,12 +191,30 @@ let mk_eq a b =
 let mk_neq0 y =
   H.Pred (Formula.Neq, [y; H.Int 0])
 
+  (*
 let get_constraint_by_cross_check y z =
+  P.pp "CROSS y: %s\n" (P.pp_list P.pp_formula (List.map snd y));
+  P.pp "CROSS z: %s\n" (P.pp_list P.pp_formula (List.map snd z));
+  let w = List.combine y z in
+  List.map (fun ((vs1, fm1), (vs2, fm2)) ->
+      let vs1' = List.map H.mk_var vs1 in
+      let fm2' = C.subs_vars vs2 vs1' fm2 in (*  List.fold_left (fun f (a,b) -> U.subs b a f) fm2 vs in *)
+      mk_eq fm1 fm2'
+    ) w
+    (*
   List.fold_left (fun cs (vs1, fm1) ->
-      let (_, fm2) = List.find (fun (vs2, _) -> vs2=vs1) z in
+      let z' = List.map (fun (vs2, fm1) ->
+               List.fold_left (fun f v -> ) fm1 vs2
+             ) z in
+  
+      P.dbg "vs1" (String.concat "." vs1);
+      let (_, fm2) = List.find (fun (vs2, _) ->
+                         P.dbg "vs2" (String.concat "." vs2);
+                         vs2=vs1) z' in
       cs @ [mk_eq fm1 fm2]
-    ) [] y
+    ) [] y *)
 ;;
+
 
 let mk_constraints = function
     [] -> []
@@ -204,6 +226,32 @@ let mk_constraints = function
           (get_constraint_by_cross_check y z) @ aux z zs
      in
      aux x xs
+;; *)
+
+let mk_constraints_pair (_, zs) =
+  match zs with
+    [] -> []
+  | [_] -> []
+  | x::xs ->
+     let rec aux (y:H.raw_hflz) = function
+         [] -> []
+       | z::zs ->
+          (mk_eq y z):: aux z zs
+     in
+     aux x xs
+;;
+
+let mk_constraints (xs : (H.raw_hflz * H.raw_hflz) list list) =
+  (* let szis = List.concat xs in
+  let grp  = List.map fst szis |> List.sort_uniq (fun a b ->
+                                      let a' = List.sort String.compare a in
+                                      let b' = List.sort String.compare b in
+                                      String.compare (String.concat "" a) (String.concat "" b)) in
+  let grps = List.map (fun g -> (g, List.filter (fun (x,_) -> List.sort String.compare x= List.sort String.compare g) szis |> List.map snd)) grp in
+  let grps' = List.map mk_constraints_pair grps in
+  List.concat grps' *)
+  let xs' = List.map (fun x -> List.map (fun (a,b) -> mk_eq a b) x) xs in
+  List.concat xs' 
 ;;
 
 let mk_summary_non_zero = function
@@ -219,12 +267,21 @@ let mk_summary_non_zero = function
      List.fold_left (fun a x -> H.mk_or a @@ mk_cons_from_edge x) x' xs 
 
 let print_model model =
-  List.iter (fun (id, v) -> print_endline (id ^ ": " ^ (string_of_int v))) model
+  List.iter (fun (id, v) -> print_endline (id ^ ": " ^ (string_of_int v))) model;
+  print_endline "---";
 ;;
 
 let subs_by_model model (regex, m, bookmark) =
   let map_model = RH.R.list_to_D model in
   let rf : RH.R.c_re = RH.R.recon map_model bookmark m regex in
+  Printf.printf "Reconstructed: %s\n" (RH.R.show_c_re rf);
+  rf
+;;
+
+let subs_by_model2 model cregex =
+  let map_model = RH.R.list_to_D model in
+  print_endline "map_model\n";
+  let rf : RH.R.c_re = RH.R.crecon map_model cregex in
   Printf.printf "Reconstructed: %s\n" (RH.R.show_c_re rf);
   rf
 ;;
@@ -296,6 +353,16 @@ let rec remove_tag f =
        H.Forall (s, f1')
 ;;
 
+
+let mk_bag splitter transformer goal gnfas defs_map =
+  let predicates_in_goals = splitter goal.H.body |> List.map C.exist_free |> List.filter C.is_pred in
+  P.pp_list P.pp_formula ~sep:"," predicates_in_goals |> P.dbg "Goal Predicates";
+  let n = List.length predicates_in_goals in
+  let regex_f = List.map (mk_reg_ex gnfas) predicates_in_goals in
+  let connective = L.get_connective goal.H.body in
+  (gnfas, regex_f, predicates_in_goals, n, defs_map, goal, connective, transformer)
+;;
+
 let rec unfold_formula defs_map n (fltn_unfold_seq:'a list) f =
     match f with
     | H.Bool _ -> f
@@ -331,56 +398,119 @@ let rec unfold_formula defs_map n (fltn_unfold_seq:'a list) f =
        H.Exists (s, unfold_formula defs_map n fltn_unfold_seq f1)
     | H.Forall (s, f1) ->
        H.Forall (s, unfold_formula defs_map n fltn_unfold_seq f1)
-      
+
 and get_unfolded_formula defs_map pred_call = function
     [] -> pred_call
-  | [_] -> T.exec_unfold defs_map pred_call
+  | [_] -> C.exec_unfold defs_map pred_call
   | (_, n)::fltn_unfold_seq ->
-     let unfolded = T.exec_unfold defs_map pred_call in
+     let unfolded = C.exec_unfold defs_map pred_call in
+     P.pp "Step Unfolded %s\n" (P.pp_formula unfolded);
      let unfolded',_ = assign_tag 0 unfolded in
      let unfolded' = unfold_formula defs_map n fltn_unfold_seq unfolded' in
      AP.normalize @@ remove_tag unfolded'
-;;
-let is_pred = function H.App _ -> true | _ -> false
 ;;
 
 let is_possible_to_match goal ys =
   let xs = L.break goal.H.body in
   
   let to_prednames xs = 
-    List.filter is_pred xs |> List.map U.explode_pred |> List.map fst |> List.sort String.compare in
+    List.filter C.is_pred xs |> List.map U.explode_pred |> List.map fst |> List.sort String.compare in
   let xs' = to_prednames xs in
   let ys' = to_prednames ys in
   xs' = ys'
 
+let mk_pairs goal_body ys =
+  let xs = L.get_predicates_ex goal_body |> List.map C.exist_free |> List.map U.explode_pred |> List.map fst in
+  
+  let eq_classes = List.map (fun xn -> List.filter (fun y ->
+                                          let yn = U.explode_pred y |> fst in
+                                          yn = xn
+                                         ) ys) xs in
+  let rec cross = function
+      [] -> [[]]
+    | z::zs ->
+       List.map (fun w -> List.map (fun z' -> z'::w) z) (cross zs) |> List.concat
+  in
+  cross eq_classes
+;;
+
+(*
 let try_fold_raw goal n connective perms =
+  
+  let checked = ref [] in
   let rec match_formulas () =
-    let perm = Stream.next perms in
-    let perm_n, rest = L.take n perm in
-    if is_possible_to_match goal perm_n then
-      begin
-        let perm_n' = L.join connective perm_n in
-        P.dbg "To be matched" @@ P.pp_formula goal.H.body;
-        P.dbg "... with" @@ P.pp_formula perm_n';
-        (* let is, f = U.find_matching goal.H.fix goal.H.var goal.H.args goal.H.body perm_n' in *)
-        let is, f = T.fold goal perm_n' in
-       
-        if not is then
-          begin P.pp_formula perm_n' |> P.dbg "Matching failed";
-                match_formulas () end
-        else
-          begin (* let formula = L.join connective perm in *)
-            P.pp_formula perm_n' |> P.dbg "@@@ Matching found @@@";
-            Some (f, rest)
-          end
-      end
-    else
-      match_formulas ()
+    
+      let perm = Stream.next perms in
+      let perm_n, rest = L.take n perm in
+      if List.mem perm_n !checked then
+        begin
+          P.dbg "..:" (string_of_int @@ List.length !checked);
+          match_formulas ()
+        end
+      else
+        begin checked := !checked @ [perm_n];
+              if is_possible_to_match goal perm_n then
+                begin
+                  let perm_n' = L.join connective perm_n in
+                  P.dbg "To be matched" @@ P.pp_formula goal.H.body;
+                  P.dbg "... with" @@ P.pp_formula perm_n';
+                  (* let is, f = U.find_matching goal.H.fix goal.H.var goal.H.args goal.H.body perm_n' in *)
+                  let is, f = T.fold goal perm_n' in
+                  
+                  if not is then
+                    begin P.pp_formula perm_n' |> P.dbg "Matching failed";
+                          match_formulas () end
+                  else
+                    begin (* let formula = L.join connective perm in *)
+                      P.pp_formula perm_n' |> P.dbg "@@@ Matching found @@@";
+                      Some (f, rest)
+                    end
+                end
+              else
+                match_formulas ()
+        end
   in
   let res = try match_formulas () with Stream.Failure -> None in
   res
 ;; 
+ *)
 
+let try_fold_raw transformer goal connective fs =
+  P.pp ":::Raw Match::: %s\n" (P.pp_list P.pp_formula fs);
+  let prs = mk_pairs goal.H.body (List.filter C.is_pred (List.map C.exist_free fs)) in
+  P.pp "prs: %d\n" (List.length prs);
+  
+  let try_fold goal pr =
+    P.pp "prs: %d| %s\n" (List.length pr) (P.pp_list P.pp_formula pr);
+    let pr' = List.map transformer pr in
+    let perm_n' = L.join connective pr' in
+    P.pp "To be matched %s ... with %s\n" (P.pp_formula goal.H.body) (P.pp_formula perm_n');
+                  (* let is, f = U.find_matching goal.H.fix goal.H.var goal.H.args goal.H.body perm_n' in *)
+    let is, f = C.fold goal perm_n' in
+                  
+    if not is then
+      begin
+        None
+      end
+    else
+      begin (* let formula = L.join connective perm in *)
+        P.pp_formula perm_n' |> P.dbg "@@@ Matching found @@@";
+        let rest = List.filter (fun x -> not (List.mem x pr')) fs in
+        Some (f, rest)
+      end
+    
+  in
+  
+  let try_match r pr =
+    if r = None then
+      try_fold goal pr
+    else
+      r
+  in
+  List.fold_left try_match None prs
+
+   
+;; 
        
 
 
@@ -425,8 +555,8 @@ let try_unfold_fold goal defs_map gnfas src_perm dest_perm =
 ;; *)
 
 let is_formula_folded goal_pred formula =
-  L.break formula
-  |> List.filter is_pred
+  L.rec_break formula
+  |> List.filter C.is_pred
   |> List.map U.explode_pred
   |> List.map fst
   |> List.exists ((=)goal_pred) 
@@ -472,27 +602,114 @@ let get_gnfa graph defs_map =
 ;;
 
 let min_req_met predicates_in_goals n preds =
+  let sign prs =
+    let a = List.map U.explode_pred prs in
+    let a' = List.map (fun (x,_) -> (x (*, List.map U.fv ys *))) a in
+    a'
+  in
+  
   List.length preds >= n
-  && let pg = List.map U.explode_pred predicates_in_goals |> List.map fst in
-     let ps = List.map U.explode_pred preds |> List.map fst in
+  && let pg = sign predicates_in_goals in
+     let ps = sign preds in
      List.for_all (fun g -> List.exists ((=)g) ps) pg
 ;;
 
+let process_r r f predname =
+    match r with
+    Some (r, params, rest, joiner) ->
+     print_endline "Folded!!!";
+     let vparams = List.map H.mk_var params in
+     let f = U.implode_pred predname vparams in
+     (r, joiner (f::rest))
+    | None ->
+       print_endline "Not Folded!!!";
+       [], f
+;;
+
+
+let pred_aligns src goal =
+  let (p1, d1) = U.explode_pred src in
+  let (p2, d2) = U.explode_pred goal in
+  let r = p1=p2 && List.for_all (fun (d1,d2) -> C.fv d1= C.fv d2) (List.combine d1 d2) in
+  r
+  
+  
+let rec min_steps defs_map prevs src goal =
+  P.pp "src: %s  goal: %s" (P.pp_formula src) (P.pp_formula goal);
+  print_endline "";
+
+  if pred_aligns src goal then
+    Some []
+  else
+    if List.length prevs > 0 &&  List.exists (fun a -> pred_aligns a src) prevs then
+      begin
+        P.pp "all: %s\n" (P.pp_list P.pp_formula prevs);
+        None
+      end
+    else
+      begin
+      let pred_name, args = U.explode_pred src in
+      let rule = D.find pred_name defs_map in
+      let nexts = rule.H.body |> L.get_predicates in
+      List.fold_left (fun (r,i) predcall ->
+          if r=None then
+            begin let predname', args' = U.explode_pred predcall in
+                  
+                  let args'' = C.substitute_args rule.H.args args args' in
+                  let pred' = U.implode_pred predname' args'' in
+                  P.pp "EEDGE %s  %s\n" (P.pp_formula predcall) (P.pp_formula pred');
+                  let r = min_steps defs_map (src::prevs) pred' goal in
+                  match r with
+                    Some xs -> (Some ((pred_name, predname',args',i)::xs), i+1)
+                  | None -> (None, i+1)
+            end
+          else
+            r, i
+        ) (None,0) nexts |> fst
+      end
+;;
+
+let mk_init_path defs_map src_perm pr_goals =
+  let rs = List.map2 (fun p -> min_steps defs_map [] p) src_perm pr_goals in
+  let paths = List.map (function
+                    Some rs ->
+                     List.fold_left (fun cr (sn,called_pred,args,tag) ->
+                         let called_params = (D.find called_pred defs_map).H.args in
+                         
+                         let edge = (sn, RH.get_edge @@ List.combine args called_params, called_pred, tag) in
+                         let cr1 = RH.R.CChar edge in
+                         RH.R.cconcat cr cr1
+                       ) (RH.R.CEmpStr) rs
+                  | None -> RH.R.CEmpStr
+                ) rs in
+  paths 
+  
 let rec unfold_fold bag preds =
-  let (_, predicates_in_goals, n, _, _, connective) = bag in
-  if min_req_met predicates_in_goals n preds then 
+  P.pp "Unfold/Fold %s\n" (P.pp_list P.pp_formula preds);
+  let (_, _, predicates_in_goals, n, _, _, connective, _) = bag in
+  if min_req_met predicates_in_goals n preds then
+    begin
     let permutation_stream = L.get_permutation_stream preds in
-    let res = try_unfold_fold_stream bag permutation_stream in
+    let res =
+      try
+        try_unfold_fold_stream bag permutation_stream
+      with
+        _ -> None
+    in
     match res with
       Some (new_rules, folded_formula, rest) ->
       new_rules, folded_formula, rest
     | None ->
        [], L.join connective preds, []
+    end
   else
-    [], L.join connective preds, []
+    begin
+      
+      [], L.join connective preds, []
+    end
 
 and try_unfold_fold_stream bag permutation_stream =
-  let (_, _, n, _, goal, _) = bag in
+  let (_, _, _, n, _, goal, _, _) = bag in
   let rec match_formulas () =
     let src_perm, rest = Stream.next permutation_stream |> L.take n in
     P.pp_list P.pp_formula ~sep:"," src_perm |> P.dbg "Trying from ";
@@ -508,51 +725,110 @@ and try_unfold_fold_stream bag permutation_stream =
   res
 
 and try_unfold_fold bag src_perm =
-  let (regex_f, _, _, defs_map, _, connective) = bag in
+  let (_, regex_f, pr_goals, _, defs_map, _, connective, _) = bag in
   let regexs = List.map2 (fun f x -> f x) regex_f src_perm in
   Printf.printf "Regular Expressions: (%s)\n" @@ P.pp_list RH.R.show_gedge regexs;
-  let summary_info = List.map mk_constrained_regex regexs in
-  let cregexs, aux_constraints, all_bookmarks = List.fold_left (fun (a,b,c) (x,y,z) -> a@[x], b@[y], c@[z]) ([],[],[]) summary_info in
-  Printf.printf "Constrained Regular Expressions: (%s)\n" @@ P.pp_list RH.R.show_c_re cregexs;
-  Printf.printf "Auxiliary Constraints: (%s)\n" @@ P.pp_list P.pp_formula aux_constraints;
+  let init_path = mk_init_path defs_map src_perm pr_goals in
+  Printf.printf "Init path: (%s)\n" @@ P.pp_list RH.R.show_c_re init_path;
+  (*
+  let simple_solution regexs =
+      let summary_info = List.map mk_constrained_regex regexs in
+      let cregexs, aux_constraints, all_bookmarks = List.fold_left (fun (a,b,c) (x,y,z) -> a@[x], b@[y], c@[z]) ([],[],[]) summary_info in
+      Printf.printf "Constrained Regular Expressions: (%s)\n" @@ P.pp_list RH.R.show_c_re cregexs;
+      Printf.printf "Auxiliary Constraints: (%s)\n" @@ P.pp_list P.pp_formula aux_constraints;
+      
+      let abs_summary = List.map RH.R.abs_summary_info cregexs in
+      Printf.printf "Computed Size Change: (%s)\n" @@ P.pp_list (P.pp_list (fun (x,a,y) -> Format.sprintf "(%s,%s,%s)" x (P.pp_formula a) y) ~sep:"|") abs_summary;
+      let subs_summary = List.map2 (mk_subs_summary defs_map) src_perm abs_summary in
+      Printf.printf "Summary Information: (%s)\n"  @@ P.pp_list (P.pp_list (fun (vs, f) -> Format.sprintf "([%s],%s)" (P.pp_list P.id vs) (P.pp_formula f)) ~sep:"|") subs_summary;
+      let new_constraints = mk_constraints subs_summary in
+      Printf.printf "Constraints: (%s)\n" @@ P.pp_list P.pp_formula new_constraints;
+      (* let neq_constraints = mk_summary_non_zero abs_summary in *)
+      let constraint_vars = List.map (fun xs -> List.map (fun (_,y,_) -> y) xs |> List.map C.fv |> List.concat) abs_summary
+                            |> List.concat
+                            |> List.sort_uniq String.compare
+      in
+      let geq_cons = List.map (fun v -> H.Pred (Formula.Ge, [H.Var v;H.Int 0])) constraint_vars in
+      let all_constraints = (* neq_constraints :: *) aux_constraints @ new_constraints @ geq_cons in
+      
+      let gen_cons = H.Pred (Formula.Gt, [H.Op (Arith.Add, List.map H.mk_var constraint_vars); H.Int 0]) in
+      let model = Z.solve_model_s constraint_vars gen_cons all_constraints in
+      print_model model;
+      let exact_unfolding_sequences : RegEx.c_re list = List.map (subs_by_model model) all_bookmarks in
+      exact_unfolding_sequences
+  in *)
 
-  let abs_summary = List.map RH.R.abs_summary_info cregexs in
-  Printf.printf "Computed Size Change: (%s)\n" @@ P.pp_list (P.pp_list (fun (x,a,y) -> Format.sprintf "(%s,%s,%s)" x (P.pp_formula a) y) ~sep:"|") abs_summary;
-  let subs_summary = List.map2 (mk_subs_summary defs_map) src_perm abs_summary in
-  Printf.printf "Summary Information: (%s)\n"  @@ P.pp_list (P.pp_list (fun (vs, f) -> Format.sprintf "([%s],%s)" (P.pp_list P.id vs) (P.pp_formula f)) ~sep:"|") subs_summary;
-  let new_constraints = mk_constraints subs_summary in
-  Printf.printf "Constraints: (%s)\n" @@ P.pp_list P.pp_formula new_constraints;
-  let neq_constraints = mk_summary_non_zero abs_summary in
-  let constraint_vars = List.map (fun xs -> List.map (fun (_,y,_) -> y) xs |> List.map T.fv |> List.concat) abs_summary
-                        |> List.concat
-                        |> List.sort_uniq String.compare
+  let semi_complex_solution regexs =
+    let res = List.map RH.R.get_summary_info regexs in
+    let dist_res = List.map (fun (x,y) -> List.map (fun a -> (a,y)) x) res in
+    let cross (xs : ('a * 'b) list list) =
+      List.fold_left (fun (r:('a * 'b) list list) (zs:('a * 'b) list) ->
+          let n = List.map (fun (z:'a * 'b) -> List.map (fun (y:('a * 'b) list) -> y@[z]) r) zs |> List.concat
+          in n
+        ) [[]] xs
+    in
+    let cross_res = cross dist_res |> List.filter (fun choice -> List.for_all (fun (a,_) -> a <> RH.R.CEmpStr) choice) in
+    let cregexs', aux_constraints = List.hd cross_res |> List.split in
+    Printf.printf "Constrained Regular Expressions (org): (%s)\n" @@ P.pp_list RH.R.show_c_re cregexs';
+    Printf.printf "Auxiliary Constraints: (%s)\n" @@ P.pp_list P.pp_formula aux_constraints;
+    let cregexs = List.map2 RH.R.cconcat init_path cregexs'  in
+    Printf.printf "Constrained Regular Expressions (ext): (%s)\n" @@ P.pp_list RH.R.show_c_re cregexs;
+
+    let abs_summary = List.map RH.R.abs_summary_info cregexs in
+    Printf.printf "Computed Size Change: (%s)\n" @@ P.pp_list (P.pp_list (fun (x,a,y) -> Format.sprintf "(%s,%s,%s)" x (P.pp_formula a) y) ~sep:"|") abs_summary;
+    let subs_summary = List.map2 (mk_subs_summary defs_map pr_goals) src_perm abs_summary in
+    Printf.printf "Summary Information: (%s)\n"  @@ P.pp_list (P.pp_list (fun (vs, f) -> Format.sprintf "([%s],%s)" (P.pp_formula vs) (P.pp_formula f)) ~sep:"|") subs_summary;
+    
+    
+    let new_constraints = mk_constraints subs_summary in
+    Printf.printf "Constraints: (%s)\n" @@ P.pp_list P.pp_formula new_constraints;
+    let neq_constraints = mk_summary_non_zero abs_summary in
+    let constraint_vars = List.map (fun xs -> List.map (fun (_,y,_) -> y) xs |> List.map C.fv |> List.concat) abs_summary
+                          |> List.concat
+                          |> List.sort_uniq String.compare
+    in
+    let geq_cons0 = List.map (fun v -> H.Pred (Formula.Ge, [H.Var v;H.Int 0])) constraint_vars in
+    let gen_cons = H.Pred (Formula.Gt, [H.Op (Arith.Add, List.map H.mk_var constraint_vars); H.Int 0]) in    
+    let all_constraints = neq_constraints :: aux_constraints @ new_constraints @ geq_cons0 in
+    let model = try
+        Z.solve_model_s constraint_vars gen_cons all_constraints
+      with
+        _ ->
+        let all_constraints' = aux_constraints @ new_constraints @ geq_cons0 in
+        Z.solve_model_s constraint_vars gen_cons all_constraints'
+    in
+    
+    print_model model;
+    P.pp "Z3 Done\n";
+    let exact_unfolding_sequences : RegEx.c_re list = List.map (subs_by_model2 model) cregexs in
+    P.pp "exact_unfolding_sequences\n";
+    exact_unfolding_sequences
   in
-  let geq_cons = List.map (fun v -> H.Pred (Formula.Ge, [H.Var v;H.Int 0])) constraint_vars in
-  let all_constraints = neq_constraints :: aux_constraints @ new_constraints @ geq_cons in
-
+    
+  let exact_unfolding_sequences = (* simple_solution *) semi_complex_solution regexs in
   
-  let gen_cons = H.Pred (Formula.Gt, [H.Op (Arith.Add, List.map H.mk_var constraint_vars); H.Int 0]) in
-  let model = Z.solve_model_s constraint_vars gen_cons all_constraints in
-  print_model model;
-  let exact_unfolding_sequences : RegEx.c_re list = List.map (subs_by_model model) all_bookmarks in
   let flatten_unfolding_sequences = List.map RH.R.flatten exact_unfolding_sequences in
   Printf.printf "Flatten: (%s)\n" @@ P.pp_list (P.pp_list (fun (x,i) -> Printf.sprintf "%s:%d" x i) ~sep:"~>") flatten_unfolding_sequences;
   let unfolded_formulas = List.map2 (get_unfolded_formula defs_map) src_perm flatten_unfolding_sequences in
   Printf.printf "Unfoldeds: (%s)\n" @@ P.pp_list P.pp_formula unfolded_formulas;
   let unfolded_goal_body = L.join connective unfolded_formulas in
   Printf.printf "Unfolded goal: (%s)\n" @@ P.pp_formula unfolded_goal_body;
+  
   let res, body = transform bag unfolded_goal_body in
+  
   res, body
-
+  
 and transform bag unfolded =
-  let (_,_,_,_,_,connective) = bag in
-  let raw = nf connective unfolded in
+  let (_,_,_,_,_,_,_,transformer) = bag in
+  let raw = (* nf connective unfolded in *) transformer unfolded in
   Printf.printf "NF: (%s)\n" @@ P.pp_formula raw;
   let formula = raw_to_formula raw in
-  fold bag formula
-
+  let rs, folded = fold bag formula in
+  P.pp "*** Folded to %s\n" (P.pp_formula folded);
+  rs, folded
+  
 and fold bag formula : (H.hes_rule list * H.raw_hflz) =
-  let (_, _, _, _, _, connective) = bag in
+  let (_, _, _, _, _, _, connective,_) = bag in
   match formula with
     FAnd fs ->
      if connective = L._and then
@@ -573,68 +849,83 @@ and fold bag formula : (H.hes_rule list * H.raw_hflz) =
      else
        [], formula_to_raw (FAnd fs) 
   | FExists _ as f ->
-     let r, (f':H.raw_hflz) = fold bag f in
-     r, f'
+     failwith "Existential is not handled at this level"
   | FAtom f -> [], f
 
 and fold_formula bag fs = (** Assumption: the underlying connective of fs is the same as goal connective *)
   let raws = List.map formula_to_raw fs in
-  fold_raw bag raws
+  let rs, folded = fold_raw bag raws in
+  P.pp "... %s is folded to %s \n" (P.pp_list P.pp_formula raws) (P.pp_formula folded);
+  rs, folded
 
 and fold_raw bag fs = (** Assumption: the underlying connective of fs is the same as goal connective *)
-  let (_, _, _, _, goal, connective) = bag in
-  let raw_stream = L.get_permutation_stream fs in
-  let broken_goal = L.break goal.H.body in
-  let n = List.length broken_goal in
-  match try_fold_raw goal n connective raw_stream with
+  let (_, _, _, _, _, goal, connective,transformer) = bag in
+
+  match try_fold_raw transformer goal connective fs with
     None ->
-     let preds, non_preds = List.partition is_pred fs in
+     P.pp "Matching failed\n";
+     let preds, non_preds = List.partition C.is_pred fs in
      let rs, formula', _ = unfold_fold_residual bag preds in
-     rs, L.join connective (formula'::non_preds)
+     (* failwith "21"; *)
+     let form = formula'::non_preds in
+     rs, L.join connective form
+     
   | Some (formula, rest) ->
      P.dbg "Fold Status: Success!!: " (P.pp_formula formula);
-     P.dbg "Fold Status: Success!!: " (P.pp_list P.pp_formula rest);
+     P.dbg "Rest: " (P.pp_list P.pp_formula rest);
      let rs, formula2 = fold_raw bag rest in
-     (* let preds, non_preds = List.partition is_pred rest in *)
+     
      (* let rs, r_formula, _ = unfold_fold_residual bag preds in *)
      rs, L.join connective (formula::formula2::[])
+          (* failwith "22" *) 
      
 and unfold_fold_residual bag residual =
   P.dbg "Residual:" (P.pp_list P.pp_formula residual);
-  let (_, predicates_in_goals, n, _, _, connective) = bag in
-
-  if !count > 1 then
+  let (_, _, predicates_in_goals, n, _, _, connective, _) = bag in
+  P.pp "Count: %d\n" !count;
+  if !count > 5 then
     [], L.join connective residual, []
   else
     begin
       count := !count + 1;
+      P.pp "Going to Unfold/fold\n";
       let all_rules, folded_formula, rest =  unfold_fold bag residual in
-  (* if is_formula_folded goal.H.var folded_formula then
-    let new_rule = T.make_new_goal folded_formula in
-    new_rule::all_rules, *)
-  if min_req_met predicates_in_goals n rest then
-    let more_all_rules, more_folded_formula, more_rest = unfold_fold_residual bag rest in
-    all_rules @ more_all_rules, L.join connective (folded_formula::more_folded_formula::more_rest), []
-  else
-    [], L.join connective (folded_formula::rest), []
-  end
+      (* if is_formula_folded goal.H.var folded_formula then
+         let new_rule = T.make_new_goal folded_formula in
+         new_rule::all_rules, *)
+      if min_req_met predicates_in_goals n rest then
+        let more_all_rules, more_folded_formula, more_rest = unfold_fold_residual bag rest in
+        all_rules @ more_all_rules, L.join connective (folded_formula::more_folded_formula::more_rest), []
+      else
+        [], L.join connective (folded_formula::rest), []
+    end
 ;;
 
+let mult_unfold_fold transformer splitter goal defs_map predicates_in_f =
+  print_endline "~***~***~***~***~***~";
+  P.pp "TO BE Folded: %s to the goal %s\n" (P.pp_list P.pp_formula predicates_in_f) (P.pp_rule goal);
+  let size_change_graph = RH.get_size_change_graph defs_map in
+  print_size_change_graph size_change_graph;
+  let gnfas = get_gnfa size_change_graph defs_map in
+  let bag = mk_bag splitter transformer goal gnfas defs_map in
+  let (_, _, _, _, _, _, connective, _) = bag in
+  let _, folded_goal, rest = unfold_fold bag predicates_in_f in
+  (folded_goal::rest) 
+;;  
+
+(*
 let start_analysis _ goal defs _ =
-  
-  let defs_map = T.make_def_map defs in (** Transforms a list to a map *)
+  let defs_map = C.make_def_map defs in (** Transforms a list to a map *)
   let alldefs =
     begin
       let size_change_graph = RH.get_size_change_graph defs_map in
       print_size_change_graph size_change_graph;
-      let predicates_in_goals = L.break goal.H.body |> List.filter is_pred in
-      let n = List.length predicates_in_goals in
-      P.pp_list P.pp_formula ~sep:"," predicates_in_goals |> P.dbg "Goal Predicates";
+
       let gnfas = get_gnfa size_change_graph defs_map in
-      let regex_f = List.map (mk_reg_ex gnfas) predicates_in_goals in
-      let connective = L.get_connective goal.H.body in
-      let all_rules, folded_goal, rest = unfold_fold (regex_f, predicates_in_goals, n, defs_map, goal, connective) predicates_in_goals in
-      let goal_rule = T.mk_rule (goal.H.var) goal.H.args goal.H.fix (L.join connective (folded_goal::rest)) in
+      let bag = mk_bag goal gnfas defs_map in
+      let (_, _, predicates_in_goals, _, _, _, connective) = bag in
+      let all_rules, folded_goal, rest = unfold_fold bag predicates_in_goals in
+      let goal_rule = C.mk_rule (goal.H.var) goal.H.args goal.H.fix (L.join connective (folded_goal::rest)) in
       (* 
          let permutation_stream = L.get_permutation_stream predicates_in_goals in
       print_endline "--- --- --- --- ---";
@@ -654,13 +945,13 @@ let start_analysis _ goal defs _ =
     end 
   in
   print_endline "~*~*~*~*~*~*~*~*~*~*~*";    
-  let head = List.hd alldefs |> make_head in
+  let head = List.hd alldefs |> L.make_head in
   let result = head::List.tl alldefs in
   let outtxt1 = P.pp_list ~sep:"\n" P.pp_rule result in
   let outtxt = "%HES\n" ^ outtxt1 in 
-  outtxt |> P.dbgn "Result";
 
+  outtxt |> P.dbgn "Result";
   outtxt 
 ;;
 
-
+*)

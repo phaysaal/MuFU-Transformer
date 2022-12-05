@@ -20,21 +20,19 @@ let print_seperation aux goal =
   P.pp_hes aux |> P.dbgn "AUX:";
 ;;
 
-
-
 let transform (hes : H.hes) env : string =
   
   let aux, goals = Seperator.seperate_goal_and_defs hes in
   let goal = List.hd goals in
   print_seperation aux goal;
 
-  M.start_analysis 5 goal aux env
+(* M.start_analysis 5 goal aux env *)
 
-  (*
+  
   let alldefs : H.hes_rule list = T.transform_hes aux goal env in
   print_endline "~*~*~*~*~*~*~*~*~*~*~*";
 
-  let head = List.hd alldefs |> make_head in
+  let head = List.hd alldefs |> Tools.make_head in
   let result = head::List.tl alldefs in
   let outtxt1 = P.pp_list ~sep:"\n" P.pp_rule result in
 
@@ -42,7 +40,7 @@ let transform (hes : H.hes) env : string =
   outtxt |> P.dbgn "Result";
 
   outtxt
-  *)
+  
   
   (* Z3Interface.get_model ();
   "Done" *);;

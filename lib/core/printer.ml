@@ -34,7 +34,7 @@ let pp_pred = function
   | F.Gt -> ">"
 ;;
 
-
+let pp = Printf.printf;;
      
 let rec pp_formula = function
     H.Bool true -> "(0 = 0)"

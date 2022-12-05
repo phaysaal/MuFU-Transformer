@@ -1,7 +1,6 @@
 open Hflmc2_syntax
    
 module H = Raw_hflz
-module T = Transformer
 module D = Map.Make(String)
 module P = Printer
 module S = Set.Make(Int)
@@ -9,6 +8,7 @@ module U = MatchMaker
 module AP = ArithmeticProcessor
 module R = RegEx
 module L = Tools
+module C = UFCommon
          
 exception StrangeSituation of string
                             
@@ -20,16 +20,31 @@ let make_head rule =
   newrule
 ;;
 
-
-let get_size_change_graph defs_map : ((string * (string * int * string) list) list) D.t =
+let get_edge p_a : (string * int * string) list =
   let is_const = function
       H.Int _ ->
        true
     | _ ->
        false
-  in
+  in 
   let get_int = function H.Int i -> i | _ -> raise (StrangeSituation "Not an Int") in
-  let f v =
+  List.fold_left
+    (fun acc (a, p) ->
+      let fv = C.fv a in
+      if List.length fv = 1 then
+        let x = H.mk_var @@ List.hd fv in
+        let r = H.Op (Arith.Sub, [a;x]) |> AP.normalize in
+        if is_const r then
+          (P.pp_formula x, get_int r, p)::acc
+        else
+          acc
+      else
+        acc
+    ) [] p_a
+  
+
+let get_size_change_graph defs_map : ((string * (string * int * string) list) list) D.t =
+ let f v =
     let name = v.H.var in
     let params = v.H.args in
     let body = v.H.body in
@@ -39,21 +54,7 @@ let get_size_change_graph defs_map : ((string * (string * int * string) list) li
       let (called_pred, args) = U.explode_pred predcall in
       let called_params = (D.find called_pred defs_map).H.args in
       let p_a = try List.combine args called_params with e -> raise e in
-      let edge =
-        List.fold_left
-          (fun acc (a, p) ->
-            let fv = T.fv a in
-            if List.length fv = 1 then
-              let x = H.mk_var @@ List.hd fv in
-              let r = H.Op (Arith.Sub, [a;x]) |> AP.normalize in
-              if is_const r then
-                (P.pp_formula x, get_int r, p)::acc
-              else
-                acc
-            else
-              acc
-          ) [] p_a
-      in
+      let edge = get_edge p_a in
       (called_pred, edge)
     in
     List.map f predcalls
@@ -111,13 +112,15 @@ let reduce gnfa x =
   let gnfa'' = D.add x x_body' (D.remove x gnfa') in
   gnfa''
 
-let get_dest_to_src_graph (sc_graph : (string * (string * int * string) list) list D.t) : (string * 'a) list D.t =
+let get_dest_to_src_graph (sc_graph : (string * (string * int * string) list) list D.t) : (string * 'a * int) list D.t =
   D.fold (fun src (edges : (string * 'a) list) acc ->
-      List.fold_left (fun acc (dest, size_changes) ->
+      List.fold_left (fun (acc,i) (dest, size_changes) ->
+          P.pp "... %d to_pred: %s \n" i dest; 
+      
           let datas = try D.find dest acc with Not_found -> [] in
-          let datas' = datas @ [(src, size_changes)] in
-          D.add dest datas' (D.remove dest acc)
-        ) acc edges
+          let datas' = datas @ [(src, size_changes, i)] in
+          D.add dest datas' (D.remove dest acc), i+1
+        ) (acc,0) edges |> fst
     ) sc_graph D.empty
   ;;
   
@@ -184,13 +187,13 @@ let permute lst =
   Stream.from perm
 ;;
 
-
+(*
 let start_analysis _ goal defs _ =
   (* let inp = ['a';'b';'c';'d';'e'] in
   let xxxs = permute inp in
   let xxxx = Stream.npeek (fact (List.length inp)) xxxs in 
   List.iter (fun xs -> List.iter (fun y -> print_char y) xs; print_char '\n') xxxx; *)
-  let defs_map = T.make_def_map defs in
+  let defs_map = C.make_def_map defs in
   let alldefs =
     begin
       P.dbg "Regex-mode" "";
@@ -220,3 +223,4 @@ let start_analysis _ goal defs _ =
   outtxt |> P.dbgn "Result";
 
   outtxt
+ *)

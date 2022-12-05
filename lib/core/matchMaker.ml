@@ -449,8 +449,7 @@ let rec get_disjuncts = function
 ;;
 
 let rec find_matching_direct fix _X (params : string list) f f' =
-  P.pp_formula f' |> P.dbgn "Find Matching";
-  P.pp_formula f |> P.dbg "to ";
+  P.pp "... ... ... Find Matching: %s <-.-> %s\n" (P.pp_formula f') (P.pp_formula f);
   
   let fn = find_matching_direct fix _X params f in
   let rec aux = function
@@ -478,6 +477,7 @@ let rec find_matching_direct fix _X (params : string list) f f' =
                   ) [] (List.rev params) in
      true, implode_pred _X args
   | None ->
+     P.pp "NOP\n";
      aux f'
 ;;
 
@@ -513,19 +513,16 @@ let rec find_matching_permutations xs ys : (H.raw_hflz list * H.raw_hflz list) =
        H.App _ | H.Exists _->
         begin
           let pred = pred_name_ex x in
-          P.dbg "### ys: " (P.pp_list P.pp_formula ys); 
           let y_matched, y_non_matched = List.partition (fun p -> (pred_name_ex p) = pred) ys in
           match y_matched with
             [] ->
-             print_endline "Not ... Matched (1)";
              raise NotMatched 
           | y::ys' ->
              let (m, u) = find_matching_permutations xs' (ys'@y_non_matched) in
              (y::m, u)
         end
        | _ ->
-          print_endline "Not ... Matched (2)";
-        raise NotMatched
+          raise NotMatched
 ;;
 
 let match_compounds fix _X params conn f f' =
@@ -558,13 +555,12 @@ let match_compounds fix _X params conn f f' =
               try
                 
                 let (matched, unmatched) = find_matching_permutations pred_f preds_ff' in
-                P.pp_list P.pp_formula matched |> P.dbg "matched";
-                
+                                
                 let f'' = L.join conn matched in
                 let b, f'''' = 
                   match find_matching_direct fix _X params f''' f'' with
-                    false, _ -> print_endline "No matching"; false, ff'
-                  | true, r -> print_endline "Matching";
+                    false, _ -> (* print_endline "No matching"; *) false, ff'
+                  | true, r -> (* print_endline "Matching"; *)
                                let a = L.join conn (non_preds_ff' @ unmatched) in
                                true, (L.join conn [a; r])
                 in
@@ -572,17 +568,16 @@ let match_compounds fix _X params conn f f' =
                 b, acc @ [f'''']
               with
                 NotMatched ->
-                print_endline "No matching";
+                 (* print_endline "No matching"; *)
                 bb, acc @ [ff']
               | Not_found ->
-                 print_endline "No matching(Not found)";
+                 (* print_endline "No matching(Not found)"; *)
                 bb, acc @ [ff']
             else
               begin
                 false, acc @ [ff']
               end
           ) (false, []) conjuncts_f' in 
-       
       b, (L.join (L.rev_connective conn) fs')
       
     end

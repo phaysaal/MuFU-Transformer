@@ -2,6 +2,7 @@ module P = Printer
 module H = Hflmc2_syntax.Raw_hflz
 module A = Hflmc2_syntax.Arith
 module F = Hflmc2_syntax.Formula
+module AP = ArithmeticProcessor
          
 type param    = string
                   [@@ deriving show,ord,iter,map,fold]
@@ -41,20 +42,20 @@ type gedge     = ScRE of regex
                | AlterRE of gedge list
                               [@@ deriving ord,show,iter,map,fold]
 
-let show_sc (_, i, _) =
-  (* "(" ^ a ^ "," ^ (string_of_int i) ^ "," ^ b ^ ")" *)
-  (* a ^ "." ^ *) string_of_int i (* ^ "." ^ b *)
+let show_sc (a, i, b) =
+  "(" ^ a ^ "," ^ (string_of_int i) ^ "," ^ b ^ ")"
+  (* (* a ^ "." ^ *) string_of_int i (* ^ "." ^ b *) *)
   
 let show_edge (a, d, b, tag) =
-  (* "{" ^ P.pp_list show_sc ~sep:"," ps ^ "}" *)
-  a ^ "->" ^ (P.pp_list show_sc d) ^ "->" ^ b ^ ":" ^ (string_of_int tag)
+  (* "{" ^ P.pp_list show_sc ~sep:"," d ^ "}" *)
+  a ^ "{" ^ (P.pp_list show_sc d) ^ "}" ^ b ^ ":" ^ (string_of_int tag)
   (* "e_{" ^ a ^ b ^ (string_of_int tag) ^ "}" *)
                           
 let rec show_regex = function
     EmpSet -> ""
-  | EmpStr -> "e"
-  | Char s -> show_edge s
-  | Concat (a, b) -> show_regex a ^ show_regex b
+  | EmpStr -> "EMP"
+  | Char ss -> show_edge ss
+  | Concat (a, b) -> show_regex a ^ "." ^ show_regex b
   | Alter bs -> "(" ^ (P.pp_list show_regex ~sep:" | " bs) ^ ")"
   | Star a -> match a with
                 EmpSet -> ""
@@ -87,9 +88,9 @@ let rec show_xxx = function
        
 let rec show_c_re = function
     CEmpSet -> ""
-  | CEmpStr -> ""
+  | CEmpStr -> "E"
   | CChar s -> show_edge s
-  | CConcat (a, b) -> show_c_re a ^ show_c_re b
+  | CConcat (a, b) -> show_c_re a ^ "." ^ show_c_re b
   | CIter (a,b) -> "(" ^ show_c_re a ^ ")^{" ^ (show_raw_hflz b) ^ "}"
 ;;
 
@@ -163,14 +164,14 @@ let rec is_final x = function
     ScRE _ -> true
   | AbsRE (p,_) -> p=x
   | AlterRE gedges -> List.for_all (is_final x) gedges
-;;
-     
-let build_gnfa (graph : ((pred * (param * int * param) list) list) D.t) : gedge D.t =
+;;                                                
+
+let build_gnfa (graph : ((pred * (param * int * param) list * int) list) D.t) : gedge D.t =
   let build_gnfa_edge from_pred edges =
-    let aux (i:int) (to_pred, sc_infos) =
+    let aux (to_pred, sc_infos, i) =
       let scre = Char (to_pred, sc_infos, from_pred, i) in
       AbsRE (to_pred, scre) in
-    let xs = List.mapi aux edges in
+    let xs = List.map aux edges in
     mk_alterRE xs |> to_common in
   D.mapi build_gnfa_edge graph
 
@@ -304,6 +305,7 @@ let rec re_to_cs m = function
   | _ -> failwith "Unsupported and Unnatural"
 
 let eq a b = H.mk_pred F.Eq a b
+let neq a b = H.mk_pred F.Neq a b
 
 let gt a b = H.mk_pred F.Gt a b
 let leq a b = H.mk_pred F.Le a b
@@ -318,7 +320,7 @@ let mk_and a b = if a = _true then b
                  else if b = _true then a
                  else H.mk_and a b
 
-let rel a b = H.mk_or (leq a zero)  (gt b zero)
+let rel a b = (* H.mk_or (leq a zero)  (gt b zero) *) H.mk_or (neq b zero)  (eq a zero) 
 
 let get model (x:string) =
   try
@@ -378,14 +380,14 @@ let expand_star a n =
     if a' = CEmpStr then
       a
     else
-      let a' = CIter (star_free a, sub n one) in 
-      CConcat (a, a')
+      let a'' = CIter (a', AP.normalize @@ sub n one) in 
+      CConcat (a, a'')
   else
     CIter (a, n)
 
 module Z = Z3Interface
-module T = Transformer
-module AP = ArithmeticProcessor 
+module T = UFCommon
+
 
 let list_to_D d =
   List.fold_left (fun mp (x,y) -> D.add x y mp) D.empty d
@@ -443,6 +445,32 @@ let compile model (a': (c_re * H.raw_hflz list) list) =
   r1'
 ;;
 
+let rec m_eval model = function
+    H.Int x -> x
+  | H.Var m ->
+     D.find m model
+  | H.Op (A.Sub, a::b::_) ->
+     let a' = m_eval model a in
+     let b' = m_eval model b in
+     a'-b'
+  | _ -> failwith "Out of scope"
+
+let rec crecon model cr =
+  
+  match cr with
+    CEmpSet -> CEmpSet
+  | CEmpStr -> CEmpStr
+  | CChar a -> CChar a
+  | CConcat (a, b) ->
+     let a' = crecon model a in
+     let b' = crecon model b in
+     CConcat (a',b')
+  | CIter (a, m) ->
+     let a' = crecon model a in
+     let v = m_eval model m |> H.mk_int in
+     
+     CIter (a', v)
+
 let rec recon model s m ms r =
   let ms' = ms @ [m] in
   let (_, _, nm) = List.find (fun (r',ms',_) -> r=r' && ms=ms') s in   
@@ -473,6 +501,8 @@ let recon model s m r =
   let r1 = compile model a' in
   r1
 ;;
+
+
 (* ((a|b)(c|d))^n -> 
    a -> m1
    b -> m2
@@ -524,7 +554,7 @@ let rec abs_summary_info = function
   | CConcat (a,b) ->
      let da = abs_summary_info a in
      let db = abs_summary_info b in
-     List.mapi (fun i (x,i1,_) ->
+     (* List.mapi (fun i (x,i1,_) ->
          let (_,i2,z) = (* try
              List.find (fun (y',_,_) -> y=y') db
            with
@@ -533,6 +563,18 @@ let rec abs_summary_info = function
              P.dbg "b:" (show_c_re b);
              raise Not_found *)
            List.nth db i 
+         in
+         (x,add i1 i2,z)
+       ) da
+     *)
+     List.map (fun (x,i1,y) ->
+         let (_,i2,z) = try
+             List.find (fun (y',_,_) -> y=y') db
+           with
+             Not_found ->
+             P.dbg "a:" (show_c_re a);
+             P.dbg "b:" (show_c_re b);
+             raise Not_found 
          in
          (x,add i1 i2,z)
        ) da
@@ -562,3 +604,101 @@ let rec flatten = function
      concat_n da i
   | CChar (_, _, dest, tag) ->
      [(dest,tag)]
+
+
+let rec src_dest = function
+    CChar (_, b, _, _) ->
+    let src_dest = List.map (fun (x,_,y) -> (x,y)) b in
+    src_dest
+  | CConcat (a, b) ->
+     let sda = src_dest a in
+     let sdb = src_dest b in
+     let r = List.fold_left (fun acc (x,y) ->
+                 let ys = List.filter (fun (z,_) -> z=y) sdb in
+                 let ws = List.map (fun (_, w) -> (x,w)) ys in
+                 acc @ ws
+               ) [] sda in
+
+     r
+  | CIter (a, _) ->
+     src_dest a
+  | _ -> []
+;;
+
+let min_iter x =
+  let sdx = src_dest x in
+  let rec aux e c sd =
+    if List.for_all (fun (x,y) -> x=y) sd then
+      (e, c)
+    else
+      let d'' = List.fold_left (fun acc (x, y) ->
+                    let ys = List.filter (fun (z,_) -> z=y) sdx in
+                    let ws = List.map (fun (_, w) -> (x,w)) ys in
+                    acc @ ws
+                  ) [] sd in
+      if d'' = sd then
+        begin
+          P.pp "x: %s\n" (show_c_re x);
+          failwith "Ta da da"
+        end
+      else
+        aux (cconcat e x) (cconcat x x) d''
+  in
+  aux CEmpStr x sdx
+;;
+
+    
+let citer m x =
+  if has_star x then
+    let x'' = star_free x in
+    let mx', mx'' = min_iter x'' in
+    let x' = if x'' = CEmpStr then CEmpStr else CIter (mx'', sub m one) in
+    cconcat (cconcat x mx') x'
+  else
+    let _, mx' = min_iter x in
+    CIter (mx', m)
+;;
+    
+let rec summary_info m = function
+  | EmpSet -> [], H.mk_bool true
+  | EmpStr -> [CEmpStr], H.mk_bool true
+  | Char a -> [CChar a], H.mk_bool true
+  | Alter (a::b::_) ->
+     let m1 = newvar () in
+     let m2 = newvar () in
+     let a', (c1 : H.raw_hflz) = summary_info m1 a in
+     let a'' = List.map (fun x -> citer m1 x) a' in
+     let b', c2 = summary_info m2 b in
+     let b'' = List.map (fun x -> citer m2 x) b' in
+     a'' @ b'', mk_and (eq (add m1 m2) m) @@ mk_and c1 c2
+  | Concat (a, b) ->
+     let a', c1 = summary_info m a in
+     let b', c2 = summary_info m b in
+     let r = List.map (fun x ->
+                 List.map (fun y ->
+                     cconcat x y) b') a'
+             |> List.concat in
+     let c = mk_and c1 c2 in
+     r, c
+  | Star a ->
+     let m1 = newvar () in
+     let a', (c':H.raw_hflz) = summary_info m1 a in
+     let b = List.exists has_star a' in
+     let a'' = List.map (citer m1) a' in
+     let a''' = List.fold_left (fun a b -> cconcat a b) CEmpStr a'' in
+     let r: H.raw_hflz = rel m1 m in 
+     let c = mk_and r c' in
+     if b then
+       [a'''; CEmpStr], c
+     else
+       [a'''], c
+  | _ -> failwith "Unsupported Alter"
+;;
+
+let get_summary_info x =
+  let m = newvar () in
+  let x' = simplify_alter x in (** alter list to alter tuple *)
+  let cx, constraints = summary_info m x' in
+  let constraints' = mk_and (eq m one) constraints in
+  cx, constraints'
+  

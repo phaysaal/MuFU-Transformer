@@ -1,5 +1,6 @@
 module H = Hflmc2_syntax.Raw_hflz
 module F = Hflmc2_syntax.Formula
+module FX = Hflmc2_syntax.Fixpoint
 module S = Set.Make(Int)
 
 exception Strange of string
@@ -7,6 +8,13 @@ exception Strange of string
 let _or = 0
 let _and = 1
 let _exists = 2
+
+let pause msg =
+    
+      if msg = "" then print_endline "Paused. Press ENTER to continue." else print_endline msg;
+      let _ = read_line () in
+      ()
+;;
 
 let get_connective = function
     H.Or _ -> _or
@@ -27,6 +35,15 @@ let rec take n = function
      then ([], xs')
      else let (xs'', zs) = take (n-1) xs in
           (x::xs'',zs)
+;;
+
+let make_head rule =
+  let args = rule.H.args in
+  let var = rule.H.var in
+  let body = List.fold_left (fun body arg -> H.mk_forall arg body) rule.H.body args in
+  let newrule = {H.var=var; args=[]; fix=FX.Greatest; body=body} in
+  newrule
+;;
 
 
 let rec join c xs =
@@ -102,6 +119,14 @@ let break formula =
   | _ -> [formula] 
 ;;
 
+let rec rec_break formula = 
+  match formula with
+  | H.Or (f1, f2) ->
+     rec_break f1 @ rec_break f2
+  | H.And (f1, f2) ->
+     rec_break f1 @ rec_break f2
+  | _ -> [formula] 
+;;
 
 let rec has_app f =
   match f with
@@ -141,6 +166,16 @@ let rec get_predicates = function
   | _ -> []
 ;;
 
+let rec get_predicates_ex = function
+    H.App _ as f -> [f]
+  | H.And (f1, f2) ->
+     get_predicates_ex f1 @ get_predicates_ex f2
+  | H.Or (f1, f2) ->
+     get_predicates_ex f1 @ get_predicates_ex f2
+  | H.Exists _ as f -> [f]
+  | _ -> []
+;;
+
 let is_const = function
       H.Int _ ->
        true
@@ -150,6 +185,7 @@ let is_const = function
 
 let get_int = function H.Int i -> i | _ -> raise (Strange "Not an Int");;
 
+let get_str = function H.Var v -> v | x -> raise (Strange ("Not a Var " ^ Printer.pp_formula x));;
 
 let get_permutation_stream inp =
   let stream = permute (List.rev inp) in
@@ -162,3 +198,5 @@ let get_permutations inp =
     if n=0 then 1 else fact (n-1) * n in
   let list = Stream.npeek (fact (List.length inp)) stream in
   list
+;;
+

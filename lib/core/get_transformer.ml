@@ -11,25 +11,25 @@ module AP = ArithmeticProcessor
 
 exception NotImplemented of string
                           
-let get_size_change_graph defs =
+let get_size_change_graph (* defs *) _ =
   raise (NotImplemented "Size Change Graph")
   
-let get_reg_ex size_change_graph =
+let get_reg_ex (* size_change_graph *) _ =
   raise (NotImplemented "Reg Ex")
   
-let get_summary_info reg_ex =
+let get_summary_info (* reg_ex *) _ =
   raise (NotImplemented "Summary Info")
 
-let get_constraints summary_info formula =
+let get_constraints (* summary_info *) (* formula *) _ _ =
   raise (NotImplemented "Constraint")
 
-let get_model constraints =
+let get_model (* constraints *) _ =
   raise (NotImplemented "Model")
 
-let get_unfolded_formula formula model =
+let get_unfolded_formula (* formula model *) _ _ =
   raise (NotImplemented "Unfolded")
 
-let get_transformed_formula formula rule_head rule_body =
+let get_transformed_formula (* formula rule_head rule_body *) _ _ _ =
   raise (NotImplemented "Unfolded")
          
 let transform defs rule =

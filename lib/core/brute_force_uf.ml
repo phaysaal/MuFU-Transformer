@@ -2,7 +2,7 @@ open Hflmc2_syntax
 
 module L = Tools
 module H = Raw_hflz
-module T = Transformer
+module T = UFCommon
 module P = Printer
 module S = Set.Make(Int)
 module U = MatchMaker
@@ -250,7 +250,8 @@ and unfold_until_max_or_matched max queue goal defs_map i =
                     else None
           | _ -> res
     end
-  
+
+  (*
 let start_analysis max goal defs env =
   
   let defs_map = T.make_def_map defs in
@@ -290,3 +291,4 @@ let start_analysis max goal defs env =
 
   outtxt 
 
+   *)
