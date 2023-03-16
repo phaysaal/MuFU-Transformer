@@ -1,5 +1,0 @@
-%HES
-G x y r =μ Plus x y r /\ Minus r x y.
-Plus x y z =μ (x=y /\ Double y z) \/ (x>y /\ Plus (x-1) y (z-1)) \/ (x<y /\ Plus x (y-1) (z+1)).
-Minus x y z =μ (x=y /\ z=0) \/ (x>y /\ Minus (x-1) y (z-1)) \/ (x<y /\ Minus x (y-1) (z+1)).
-Double x z =μ (x=0 /\ z=0) \/ (x>0 /\ Double (x-1) (z-2)).

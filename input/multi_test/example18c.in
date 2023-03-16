@@ -1,4 +1,0 @@
-%HES
-G x y =μ M x y /\ N x y.
-M x1 x2 =μ M (x1-1) x2 \/ N x2 (x1-1).
-N y1 y2 =μ M (y1+1) (y2+1).

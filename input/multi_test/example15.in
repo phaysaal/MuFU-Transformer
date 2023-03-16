@@ -1,4 +1,0 @@
-%HES
-X x =μ DPO x \/ B x.
-DPO x =μ x<>1 /\ DPO (x-2).
-B x =μ x<>0 /\ B (x-4) \/ B (x-6).
