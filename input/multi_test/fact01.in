@@ -1,0 +1,4 @@
+%HES
+G x y r =μ Plus x y r /\ Minus r x y.
+Fact x r =μ (x=0 /\ r=1) \/ (x>0 /\ ∃s.(Fact (x-1) s /\ Mult x s r)).
+Mult x y z =μ (x=0 /\ z=0) \/ (x>1 /\ Mult (x-1) y (z-y)).

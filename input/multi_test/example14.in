@@ -1,0 +1,5 @@
+%HES
+X x =μ DNE x \/ O x.
+DNE x =μ x=0 \/ DNE (x+2) \/ DNE (x-2).
+O x =μ x=1 \/ O (x+2) \/ A (x).
+A x =μ O (x-2).

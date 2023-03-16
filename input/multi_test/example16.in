@@ -1,0 +1,4 @@
+%HES
+G x y =μ X x y \/ Y x y.
+X x1 x2 =μ X (x2-1) x1 \/ Y x1 (x2+1).
+Y y1 y2 =μ X (y1+1) (y1+2).
