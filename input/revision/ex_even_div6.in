@@ -1,0 +1,8 @@
+%HES
+
+G =μ ∀ x.DEven x \/ DivsixI x.
+EvenI x =μ x=0 \/ (x>0 /\ OddI (x-1)) \/ (x<0 /\ OddI (x+1)).
+OddI  x =μ (x>0 /\ EvenI (x-1)) \/ (x<0 /\ EvenI (x+1)).
+DEven x =v x<>0 /\ DOdd (x-1).
+DOdd  x =v DEven (x-1).
+DivsixI x =μ x=0 \/ (x>0 /\ DivsixI (x-6)) \/ (x<0 /\ DivsixI (x+6)).

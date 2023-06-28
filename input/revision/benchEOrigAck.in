@@ -1,0 +1,3 @@
+%HES
+OA m n r =v OrigAck m n r.
+OrigAck m n r =v (m<=0 /\ r=n+1) \/ (m>0 /\ n=0 /\ OrigAck (m-1) 1 r) \/ ∃r0.(m>0 /\ n>0 /\ OrigAck m (n-1) r0 /\ OrigAck m r0 r).

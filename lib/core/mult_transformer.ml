@@ -69,6 +69,7 @@ let rec formula_to_raw = function
   | FAtom a -> a
 ;;
 
+(*
 let rec nf connective_of_goal formula =
   if connective_of_goal = L._and then
     C.dnf_of_formula formula
@@ -83,7 +84,7 @@ and nf_of_exists connective_of_goal = function
     H.Exists (s, a) -> H.Exists (s, nf_of_exists connective_of_goal a)
   | f -> nf connective_of_goal f 
 ;;
-
+*)
     
 let print_size_change_graph graph =
   let print_edge v = (fun (xx,l) ->
@@ -814,9 +815,69 @@ and try_unfold_fold bag src_perm =
   let unfolded_goal_body = L.join connective unfolded_formulas in
   Printf.printf "Unfolded goal: (%s)\n" @@ P.pp_formula unfolded_goal_body;
   
-  let res, body = transform bag unfolded_goal_body in
-  
+  let res, body = (* timeout *)  (transform bag) unfolded_goal_body (* 60 ([], H.Bool true) *) in
+  Printf.printf ">> Unfolding try done\n";
+  (* let res = [] in
+     let body = H.Bool true in *)
   res, body
+
+(*
+and run_in_thread f arg default =
+  let pipe_r, pipe_w = Unix.pipe () in
+  let t = Thread.create (fun () ->
+      let r = f arg in
+      let oc = Unix.out_channel_of_descr pipe_w in
+      Marshal.to_channel oc (false,r) [];
+      close_out oc;
+      exit 0
+    ) () in
+  let tmo = Thread.create (fun () ->
+      Thread.delay 60.0;
+      Unix.kill (Thread.id t) Sys.sigkill;
+      let oc = Unix.out_channel_of_descr pipe_w in
+      Marshal.to_channel oc (true,default) [];
+      close_out oc;
+      Thread.exit ()
+    ) () in
+  Thread.join t;
+  let ic = Unix.in_channel_of_descr pipe_r in
+  let r, result = (Marshal.from_channel ic : (bool * (H.hes_rule list * 'b))) in
+  result
+  *)
+  
+and timeout (f:H.raw_hflz -> (H.hes_rule list * 'b)) (arg : H.raw_hflz) time (default : (H.hes_rule list * 'b)) =
+  let kill pid sign = 
+  try Unix.kill pid sign with
+  | Unix.Unix_error _ -> Printf.printf "Process %d succeeded\n" pid; exit 0
+  | _ -> Printf.printf "Process %d succeeded\n" pid; exit 0
+  in
+  let pipe_r, pipe_w = Unix.pipe () in
+  Printf.printf ">> Forking started %f\n" (Unix.time ());
+  (match Unix.fork () with
+   | 0 ->
+     let x : (H.hes_rule list * 'b) = (f arg) in
+     let oc = Unix.out_channel_of_descr pipe_w in
+     Marshal.to_channel oc (true,x) [];
+     close_out oc;
+     exit 0
+   | pid0 ->
+     Printf.printf ">> Process %d started at %f\n" pid0 (Unix.time ());
+     (match Unix.fork () with
+        0 ->
+        Unix.sleep time;
+        kill pid0 Sys.sigkill;
+        Printf.printf ">> Process %d timeout at %f\n" pid0 (Unix.time ());
+        let oc = Unix.out_channel_of_descr pipe_w in
+        Marshal.to_channel oc (false, default) [];
+        close_out oc;
+        exit 0
+      | pid1 ->
+        Printf.printf ">> Timeout Process %d for org process %d finished at %f\n" pid1 pid0 (Unix.time ());
+        let ic = Unix.in_channel_of_descr pipe_r in
+        let rf, result = (Marshal.from_channel ic : (bool * (H.hes_rule list * 'b))) in
+        Printf.printf ">> Result retrieved for process (%d) %d finished at %f\n" pid1 pid0 (Unix.time ());
+        if rf then ( try Unix.kill pid1 Sys.sigkill with _ -> ()); 
+        result ))
   
 and transform bag unfolded =
   let (_,_,_,_,_,_,_,transformer) = bag in
@@ -859,7 +920,7 @@ and fold_formula bag fs = (** Assumption: the underlying connective of fs is the
   rs, folded
 
 and fold_raw bag fs = (** Assumption: the underlying connective of fs is the same as goal connective *)
-  let (_, _, _, _, _, goal, connective,transformer) = bag in
+  let (_, _, _, _, _, goal, connective, transformer) = bag in
 
   match try_fold_raw transformer goal connective fs with
     None ->
@@ -906,7 +967,9 @@ let mult_unfold_fold transformer splitter goal defs_map predicates_in_f =
   P.pp "TO BE Folded: %s to the goal %s\n" (P.pp_list P.pp_formula predicates_in_f) (P.pp_rule goal);
   let size_change_graph = RH.get_size_change_graph defs_map in
   print_size_change_graph size_change_graph;
+  
   let gnfas = get_gnfa size_change_graph defs_map in
+  
   let bag = mk_bag splitter transformer goal gnfas defs_map in
   let (_, _, _, _, _, _, connective, _) = bag in
   let _, folded_goal, rest = unfold_fold bag predicates_in_f in

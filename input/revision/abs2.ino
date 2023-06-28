@@ -1,0 +1,12 @@
+%HES
+
+G m x =v DAbs1 m x \/ Abs2 m x.
+Abs1 x y =μ (x=0 /\ y=x) \/ (x<0 /\ Abs1 (x+1) (y-1)) \/ (x>0 /\ Abs1 (x-1) (y-1)).
+Abs2 x y =μ (x>=0 /\ y=x) \/ (x<0 /\ Abs2 (x+1) (y-1)). 
+DAbs1 x y =v (x<>0 \/ y<>x) /\ (x>=0 \/ DAbs1 (x+1) (y-1)) /\ (x<=0 \/ DAbs1 (x-1) (y-1)).
+
+
+/*
+//(x=0 /\ y=x+x) \/ (x<0 /\ Abs2 (x+1) (y+1)) \/ (x>0 /\ Abs2 (x-1) (y+1)).
+(x=0 /\ r=y+z) \/ (x>0 /\ z=0 /\ S(x-1,y+1,0,r)) \/ exists r1 r2(x>0 /\ z>0 /\ S(x-1, r1, r2+y, r) /\ S(x,y,z-1,r1) /\ S(x,y,z,r2))
+*/
